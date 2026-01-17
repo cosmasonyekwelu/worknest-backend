@@ -35,8 +35,8 @@ const userSchema = new Schema(
     },
     role: {
       type: String,
-      enum: ["user", "admin, superadmin"], //predefined options that must be selected
-      default: "user",
+      enum: ["applicant", "admin"], //predefined options that must be selected
+      default: "applicant",
     },
     isVerified: {
       type: Boolean,
@@ -62,8 +62,8 @@ const userSchema = new Schema(
       type: Boolean,
       default: false,
       select: function () {
-        return this.role === "user";
-      }, //show field only if the user role is "user"
+        return this.role === "applicant";
+      }, //show field only if the user role is "applicant" / ask the group later
     },
   },
   {
