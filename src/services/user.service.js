@@ -2,6 +2,7 @@ import User from "../models/user.js";
 import responseHandler from "../lib/responseHandler.js";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
+import mailService from "./email.service.js"
 
 const { errorResponse, notFoundResponse } = responseHandler;
 
@@ -30,7 +31,8 @@ const userService = {
     //proceed to sending email to user
     // preventing email service from blocking user creation
     process.nextTick(() => {
-      // input email service here
+            mailService.sendWelcomeMail(user).catch(console.error); //catch email sending error
+
     });
     // sending error to middleware if user creation fails
     if (!user) {
