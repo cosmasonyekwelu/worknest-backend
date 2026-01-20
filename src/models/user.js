@@ -61,14 +61,11 @@ const userSchema = new Schema(
     isCompletedOnboard: {
       type: Boolean,
       default: false,
-      select: function () {
-        return this.role === "applicant";
-      }, //show field only if the user role is "applicant" / ask the group later
     },
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 const User = mongoose.models.User || model("User", userSchema);
