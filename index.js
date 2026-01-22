@@ -13,8 +13,7 @@ import { catchNotFound, globalErrorHandler } from "./src/middleware/errorHandler
 dotenv.config();
 
 // api routes
-import userRoutes from "./src/routes/userRoutes.js"
-
+import userRoutes from "./src/routes/userRoutes.js";
 const app = express();
 app.set("trust proxy", 1);
 
