@@ -6,7 +6,7 @@ const userSchema = new Schema(
       type: String,
       required: [true, "Full name is required"],
       trim: true,
-      maxlength: [50, "Full name cannot be more than 50 characters"],
+      maxLength: [50, "Full name cannot be more than 50 characters"],
     },
     email: {
       type: String,
@@ -61,10 +61,7 @@ const userSchema = new Schema(
     isCompletedOnboard: {
       type: Boolean,
       default: false,
-      select: function () {
-        return this.role === "applicant";
-      }, //show field only if the user role is "applicant" / ask the group later
-    },
+      },
   },
   {
     timestamps: true,
