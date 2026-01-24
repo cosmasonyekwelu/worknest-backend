@@ -243,14 +243,5 @@ Tool: BullMQ / Redis
 
 ---
 
-## 11. Evolution Path
-
-- Start as modular monolith
-- Extract Notification worker first
-- Extract Search if needed
-- Introduce event broker (Kafka/SQS) at scale
-
----
-
 This design intentionally balances **startup speed with architectural correctness**, enabling fast delivery without blocking future scale.
 
