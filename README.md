@@ -233,7 +233,7 @@ REVIEWED:   "REVIEWED"   // Initial screening passed
 INTERVIEW:  "INTERVIEW"  // Scheduled for interview
 OFFER:      "OFFER"      // Job offer extended
 REJECTED:   "REJECTED"   // Not proceeding
-WITHDRAWN:  "WITHDRAWN"  // Candidate withdrew
+
 ```
 
 ## File Upload Specifications
