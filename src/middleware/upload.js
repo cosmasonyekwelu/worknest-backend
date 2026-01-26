@@ -1,4 +1,5 @@
 import multer from "multer";
+// Install Multer to handle file uploads
 
 /**
  * Use memory storage so files can be passed directly
