@@ -84,6 +84,103 @@ CLOUDINARY_URL=cloudinary://key:secret@name
 
 ---
 
+
+## Core API Endpoints
+
+### Authentication (`/api/auth`)
+```http
+POST   /api/auth/register     # User registration
+POST   /api/auth/login        # User login
+POST   /api/auth/refresh      # Token refresh
+POST   /api/auth/logout       # Token invalidation
+POST   /api/auth/forgot-password
+POST   /api/auth/reset-password
+```
+
+### Jobs (`/api/jobs`)
+```http
+GET    /api/jobs              # Search with filters
+GET    /api/jobs/:id          # Job details
+GET    /api/jobs/saved        # User's saved jobs
+POST   /api/jobs/:id/save     # Save job
+DELETE /api/jobs/:id/save     # Unsave job
+GET    /api/jobs/recommended  # Personalized recommendations
+```
+
+### Applications (`/api/applications`)
+```http
+POST   /api/applications      # Submit application
+GET    /api/applications/me   # User's applications
+GET    /api/applications/:id  # Application status
+```
+
+### User Profile (`/api/users`)
+```http
+GET    /api/users/me          # Current user profile
+PATCH  /api/users/me          # Update profile
+POST   /api/users/me/avatar   # Upload avatar
+GET    /api/users/me/resume   # Get resume
+POST   /api/users/me/resume   # Upload resume
+```
+
+### Admin Endpoints (`/api/admin/*`)
+```http
+# Job Management
+GET    /api/admin/jobs
+POST   /api/admin/jobs
+PATCH  /api/admin/jobs/:id
+DELETE /api/admin/jobs/:id
+
+# Application Management
+GET    /api/admin/applications
+GET    /api/admin/jobs/:id/applications
+PATCH  /api/admin/applications/:id/status
+
+# User Management
+GET    /api/admin/users
+PATCH  /api/admin/users/:id/status
+```
+
+## Status Codes & Enums
+
+### Job Status
+```javascript
+DRAFT:      "DRAFT"      // Job not published
+ACTIVE:     "ACTIVE"     // Accepting applications
+PAUSED:     "PAUSED"     // Temporarily inactive
+CLOSED:     "CLOSED"     // No longer accepting
+EXPIRED:    "EXPIRED"    // Auto-closed by system
+```
+
+### Application Status
+```javascript
+PENDING:    "PENDING"    // Submitted, under review
+REVIEWED:   "REVIEWED"   // Initial screening passed
+INTERVIEW:  "INTERVIEW"  // Scheduled for interview
+OFFER:      "OFFER"      // Job offer extended
+REJECTED:   "REJECTED"   // Not proceeding
+
+```
+
+## File Upload Specifications
+
+### Resume Upload
+- **Format**: PDF, DOC, DOCX
+- **Max Size**: 5MB
+- **Field Name**: `resume`
+- **Response**: Returns Cloudinary URL and public_id
+
+### Avatar Upload
+- **Format**: JPG, PNG, WebP
+- **Max Size**: 2MB
+- **Dimensions**: Auto-cropped to 300x300
+- **Field Name**: `avatar`
+
+### Cover Letter
+- **Format**: PDF, DOC, DOCX, TXT
+- **Max Size**: 2MB
+- **Field Name**: `coverLetter`
+
 ## Run in Development Mode (without Docker)
 ```bash
 npm install
