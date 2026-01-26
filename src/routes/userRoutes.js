@@ -118,7 +118,7 @@ router.delete(
   verifyAuth,
   authorizedRoles("admin"),
   clearCache("users"),
-  deleteAccountAdmins
+  deleteAccountAdmins,
 );
 
 export default router;
