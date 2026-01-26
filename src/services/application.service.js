@@ -1,71 +1,99 @@
 import Application from "../models/application.model.js";
 import Job from "../models/job.model.js";
-import { uploadToCloudinary } from "../utils/cloudinary.js";
-import ApiError from "../utils/ApiError.js";
+import ResponseHandler from "../lib/responseHandler.js";
+import { uploadToCloudinary } from "../lib/cloudinary.js";
 
+/**
+ * Submit a new job application
+ * Business rules live here (NOT in controller)
+ */
 export const submitApplication = async ({
   userId,
   jobId,
-  resume,
-  coverLetter,
+  resumeFile,
   portfolioUrl,
   linkedinUrl,
   answers
 }) => {
+  // 1. Ensure job exists
   const job = await Job.findById(jobId);
-  if (!job) throw new ApiError(404, "Job not found");
-
-  if (job.status !== "ACTIVE") {
-    throw new ApiError(400, "JOB_CLOSED");
+  if (!job) {
+    throw ResponseHandler.notFoundResponse("Job not found");
   }
 
+  // 2. Job must be ACTIVE
+  if (job.status !== "ACTIVE") {
+    throw ResponseHandler.errorResponse("JOB_CLOSED", 400);
+  }
+
+  // 3. Prevent duplicate applications
   const exists = await Application.findOne({ user: userId, job: jobId });
   if (exists) {
-    throw new ApiError(409, "ALREADY_APPLIED");
+    throw ResponseHandler.errorResponse("ALREADY_APPLIED", 409);
   }
 
-  // upload first (important!)
-  const resumeUpload = await uploadToCloudinary(resume.path, "resumes");
-
-  const app = await Application.create({
-    user: userId,
-    job: jobId,
-    resumeUrl: resumeUpload.secure_url,
-    resumeId: resumeUpload.public_id,
-    portfolioUrl,
-    linkedinUrl,
-    answers,
-    timeline: [{ status: "PENDING" }]
+  // 4. Upload resume to Cloudinary (using shared lib)
+  const uploadResult = await uploadToCloudinary(resumeFile.buffer, {
+    folder: "Worknest/resumes",
+    resource_type: "raw",
   });
 
-  return app;
+  // 5. Create application atomically
+  const application = await Application.create({
+    user: userId,
+    job: jobId,
+    resumeUrl: uploadResult.url,
+    resumeId: uploadResult.public_id,
+    portfolioUrl: portfolioUrl || null,
+    linkedinUrl: linkedinUrl || null,
+    answers,
+    timeline: [{ status: "PENDING" }],
+  });
+
+  return application;
 };
 
+/**
+ * Get applications for authenticated user
+ */
 export const getMyApplications = async (userId, page, limit) => {
   const skip = (page - 1) * limit;
 
-  const [data, total] = await Promise.all([
+  const [applications, total] = await Promise.all([
     Application.find({ user: userId })
       .populate("job", "title company")
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit),
-    Application.countDocuments({ user: userId })
+    Application.countDocuments({ user: userId }),
   ]);
 
-  return { data, total };
+  return {
+    applications,
+    pagination: {
+      page,
+      limit,
+      total,
+    },
+  };
 };
 
-export const getApplicationById = async (userId, appId) => {
-  const app = await Application.findById(appId).populate(
+/**
+ * Get application by ID (ownership enforced)
+ */
+export const getApplicationById = async (userId, applicationId) => {
+  const application = await Application.findById(applicationId).populate(
     "job",
     "title company"
   );
 
-  if (!app) throw new ApiError(404, "NOT_FOUND");
-  if (app.user.toString() !== userId.toString()) {
-    throw new ApiError(403, "FORBIDDEN");
+  if (!application) {
+    throw ResponseHandler.notFoundResponse("Application not found");
   }
 
-  return app;
+  if (application.user.toString() !== userId.toString()) {
+    throw ResponseHandler.forbiddenResponse("Forbidden");
+  }
+
+  return application;
 };
