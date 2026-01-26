@@ -147,9 +147,7 @@ PATCH  /api/admin/users/:id/status
 ```javascript
 DRAFT:      "DRAFT"      // Job not published
 ACTIVE:     "ACTIVE"     // Accepting applications
-PAUSED:     "PAUSED"     // Temporarily inactive
 CLOSED:     "CLOSED"     // No longer accepting
-EXPIRED:    "EXPIRED"    // Auto-closed by system
 ```
 
 ### Application Status
