@@ -174,7 +174,6 @@ Authorization is enforced **per route and per resource**.
 - All uploads go directly to Cloudinary
 
 ### Multi-Tenancy
-- Single-tenant platform (v1)
 - Admins manage global job pool
 
 ---
