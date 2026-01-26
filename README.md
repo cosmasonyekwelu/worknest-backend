@@ -1,163 +1,89 @@
-# WorkNest API
+# WorkNest Backend API
 
-## Overview
+## Overview (Backend Perspective)
+WorkNest Backend is the core API powering the WorkNest job marketplace. It serves as the **authoritative backend** for all clients (web, admin, and mobile), handling authentication, job management, applications, profiles, and admin operations.
 
-WorkNest API is the core backend service powering the WorkNest job marketplace platform. It provides a complete RESTful interface for user authentication, job management, application processing, and administrative operations.
+The backend is intentionally designed to keep **all business rules server-side** so frontend and mobile clients remain thin and predictable.
 
-## Key Design Principles
+---
 
-- **Thin Clients**: All business logic resides server-side; clients focus on presentation
-- **Consistent API**: Single API surface for web, mobile, and admin interfaces
-- **Stateless Authentication**: JWT-based authentication for horizontal scalability
-- **Media-First Design**: Built-in support for resumes, avatars, and job media
+## Problem This Backend Solves
+Frontend and mobile applications need a single, reliable system to:
+- Authenticate users and admins securely
+- Manage job listings through a full lifecycle (draft → active → closed)
+- Accept and track job applications
+- Upload and store resumes and media safely
+- Send verification and notification emails
+- Expose consistent APIs for web and mobile clients
 
-## Architecture
+This backend centralizes these responsibilities and exposes a clean REST API.
 
-### Core Domains
-```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│  Authentication │    │    Job Catalog  │    │  Applications   │
-│  - User/Admin   │───▶│  - Listings     │───▶│  - Submissions  │
-│  - JWT tokens   │    │  - Search       │    │  - Tracking     │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-         │                       │                       │
-         ▼                       ▼                       ▼
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│    File Store   │    │   Notifications │    │   Analytics     │
-│  - Cloudinary   │    │  - Nodemailer   │    │  - Monitoring   │
-│  - CDN caching  │    │  - Templates    │    │  - Metrics      │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-```
+---
 
-### Technology Stack
+## Tech Stack (and Why)
 
-| Component | Technology | Justification |
-|-----------|------------|---------------|
-| **Runtime** | Node.js 18+ | Asynchronous I/O for concurrent job applications |
-| **Framework** | Express.js | Minimal abstraction with full control |
-| **Database** | MongoDB Atlas | Schema flexibility for rapid iteration |
-| **ORM/ODM** | Mongoose | Schema validation and relationship management |
-| **Authentication** | JWT + bcrypt | Stateless sessions with refresh rotation |
-| **File Storage** | Cloudinary | Specialized resume/PDF handling with CDN |
-| **Email** | Nodemailer + SMTP | Reliable transactional emails |
-| **Containers** | Docker + Compose | Consistent development environments |
-| **Testing** | Jest + Supertest | Comprehensive API test coverage |
+- **Node.js (Express)** – Simple, fast, and ideal for JSON APIs
+- **MongoDB (Atlas)** – Flexible schema for early-stage iteration, ideal for jobs & applications
+- **Mongoose** – Explicit models, validation, and relationships
+- **JWT (Access + Refresh tokens)** – Secure, stateless auth for web and mobile
+- **Cloudinary** – Resume, avatar, and media storage
+- **Nodemailer (Gmail SMTP)** – Email verification, password reset, notifications
+- **Docker & Docker Compose** – One-command local environment
 
-## Quick Start
+This stack prioritizes speed of development, clarity, and scalability for startups.
+
+---
+
+## Local Setup (One Command)
 
 ### Prerequisites
-- Docker & Docker Compose (recommended)
-- Node.js 18+ (for native development)
-- MongoDB Atlas account (or local MongoDB)
+- Docker
+- Docker Compose
 
-### Docker Development (Recommended)
+### Start backend
 ```bash
-# Clone and launch
-git clone <repository>
-cd worknest-backend
 docker-compose up --build
-
-# Verify
-curl http://localhost:4000/health
-# Expected: {"status":"ok","service":"worknest-api"}
 ```
 
-### Native Development
-```bash
-# Install dependencies
-npm install
-
-# Configure environment
-cp .env.example .env
-# Edit .env with your credentials
-
-# Start development server
-npm run dev
+API will be available at:
+```
+http://localhost:4000
 ```
 
-## Environment Configuration
+---
 
-Create `.env` file with the following variables:
+## Environment Variables
+Create a `.env` file in the root directory:
 
 ```env
-# Application
+# App
 NODE_ENV=development
-PORT=4000
-CLIENT_URL=http://localhost:3000
+CLIENT_URL=http://localhost:4000
+DATABASE_NAME=worknest_server
 
 # Database
-MONGODB_URI=mongodb+srv://user:pass@cluster.mongodb.net/worknest
-# For Docker: mongodb://mongodb:27017/worknest
+MONGO_URI=mongodb+srv://<user>:<password>@cluster0.mongodb.net
 
-# Authentication
-JWT_SECRET=your_256bit_base64_secret_here
-JWT_ACCESS_EXPIRY=15m
-JWT_REFRESH_EXPIRY=7d
-BCRYPT_ROUNDS=12
+# Auth
+JWT_SECRET_KEY=your_secret_key
+JWT_ACCESS_TOKEN_EXPIRES=15m
+JWT_REFRESH_TOKEN_EXPIRES=7d
 
-# Email Service
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=your-email@gmail.com
-SMTP_PASS=your-app-specific-password
-SMTP_FROM=noreply@worknest.com
+# Email (SMTP)
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_USER=ourworknest@email.com
+EMAIL_PASSWORD=your_app_password
 
-# Cloudinary (File Storage)
-CLOUDINARY_CLOUD_NAME=your-cloud
-CLOUDINARY_API_KEY=your-key
-CLOUDINARY_API_SECRET=your-secret
-CLOUDINARY_FOLDER=worknest/uploads
-
-# Rate Limiting (requests per window)
-RATE_LIMIT_WINDOW=15
-RATE_LIMIT_MAX=100
+# File Uploads (Cloudinary)
+CLOUDINARY_CLOUD_NAME=xxxx
+CLOUDINARY_API_KEY=xxxx
+CLOUDINARY_API_SECRET=xxxx
+CLOUDINARY_URL=cloudinary://key:secret@name
 ```
 
-## API Testing with Postman
+---
 
-### Collection Setup
-1. **Import Collection**: Import `WorkNest.postman_collection.json`
-2. **Configure Environment**: 
-   - Base URL: `{{baseUrl}}` (set to `http://localhost:4000`)
-   - Authentication: Use "Tests" tab to automatically capture tokens
-
-### Authentication Flow (Postman Tests)
-Each authentication request includes scripts to automatically store tokens:
-
-```javascript
-// In Postman Tests tab for login endpoint
-if (pm.response.code === 200) {
-    const jsonData = pm.response.json();
-    pm.environment.set("accessToken", jsonData.accessToken);
-    pm.environment.set("refreshToken", jsonData.refreshToken);
-}
-```
-
-### Common Test Scenarios
-
-#### 1. User Registration & Job Search
-```
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│  Register   │────▶│  Login      │────▶│  Search Jobs│
-│  (POST)     │     │  (POST)     │     │  (GET)      │
-└─────────────┘     └─────────────┘     └─────────────┘
-```
-
-#### 2. Job Application Flow
-```
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│  View Job   │────▶│  Save Job   │────▶│  Apply      │
-│  (GET)      │     │  (POST)     │     │  (POST)     │
-└─────────────┘     └─────────────┘     └─────────────┘
-```
-
-#### 3. Admin Job Management
-```
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│  Create Job │────▶│  List Apps  │────▶│  Update App │
-│  (POST)     │     │  (GET)      │     │  (PATCH)    │
-└─────────────┘     └─────────────┘     └─────────────┘
-```
 
 ## Core API Endpoints
 
@@ -255,171 +181,126 @@ REJECTED:   "REJECTED"   // Not proceeding
 - **Max Size**: 2MB
 - **Field Name**: `coverLetter`
 
-## Client Integration Guidelines
-
-### 1. Authentication Headers
-```javascript
-// Always include for protected endpoints
-Authorization: Bearer ${accessToken}
-
-// Refresh token flow (client-side)
-if (response.status === 401) {
-    // Use refresh token to get new access token
-    // Retry original request
-}
-```
-
-### 2. Error Handling
-All errors follow the format:
-```json
-{
-    "success": false,
-    "error": {
-        "code": "VALIDATION_ERROR",
-        "message": "Email is required",
-        "details": { "field": "email" }
-    }
-}
-```
-
-### 3. Pagination
-```javascript
-// Request
-GET /api/jobs?page=1&limit=10
-
-// Response includes metadata
-{
-    "success": true,
-    "data": [...],
-    "pagination": {
-        "page": 1,
-        "limit": 10,
-        "total": 45,
-        "pages": 5,
-        "hasNext": true,
-        "hasPrev": false
-    }
-}
-```
-
-### 4. Search & Filtering
-```javascript
-// Multiple filter support
-GET /api/jobs?title=developer&location=remote&experience=senior
-
-// Salary range
-GET /api/jobs?salary[min]=50000&salary[max]=100000
-
-// Date filtering
-GET /api/jobs?postedAfter=2024-01-01
-```
-
-## Development Commands
-
+## Run in Development Mode (without Docker)
 ```bash
-# Install dependencies
 npm install
-
-# Development with hot reload
 npm run dev
-
-# Production build
-npm run build
-npm start
-
-# Testing
-npm test              # Run all tests
-npm run test:watch    # Watch mode
-npm run test:coverage # Coverage report
-
-# Code quality
-npm run lint          # ESLint
-npm run lint:fix      # Auto-fix issues
-npm run format        # Prettier formatting
-
-# Database
-npm run db:seed       # Seed test data
-npm run db:reset      # Reset database
 ```
-
-## Monitoring & Health
-
-### Health Endpoints
-```http
-GET  /health          # Basic service status
-GET  /health/db       # Database connectivity
-GET  /health/redis    # Cache status
-GET  /health/email    # Email service status
-```
-
-### Logging Strategy
-- **Development**: Colored console output with request details
-- **Production**: Structured JSON logs to stdout (Docker capture)
-- **Audit Logs**: Sensitive operations (login, application submission)
-
-## Security Considerations
-
-### Implemented
-- JWT with short-lived access tokens
-- Refresh token rotation
-- Password hashing with bcrypt
-- Rate limiting per endpoint
-- Helmet.js security headers
-- CORS configured for client origins
-- Input validation with Joi
-- NoSQL injection prevention
-- File upload scanning
-
-### Client Responsibilities
-- Store tokens securely (httpOnly cookies recommended)
-- Implement token refresh logic
-- Validate all API responses
-- Sanitize user inputs before sending
-- Implement request timeouts and retries
-
-## Deployment
-
-### Docker Deployment
-```bash
-# Production build
-docker build -t worknest-api .
-
-# Run with environment variables
-docker run -p 4000:4000 \
-  -e MONGODB_URI=${MONGODB_URI} \
-  -e JWT_SECRET=${JWT_SECRET} \
-  worknest-api
-```
-
-### Environment Checklist
-- [ ] MongoDB Atlas cluster configured
-- [ ] Cloudinary account with upload preset
-- [ ] SMTP service (SendGrid, AWS SES, etc.)
-- [ ] Environment variables set
-- [ ] SSL certificate configured
-- [ ] CDN for static assets
-- [ ] Backup strategy for database
-
-## Support & Troubleshooting
-
-### Common Issues
-1. **Connection Refused**: Verify Docker/MongoDB is running
-2. **Authentication Failures**: Check JWT secret and token expiry
-3. **Upload Failures**: Verify Cloudinary credentials and file limits
-4. **Email Issues**: Check SMTP credentials and port accessibility
-
-### Debug Mode
-Enable detailed logging:
-```bash
-DEBUG=worknest:* npm run dev
-```
-
-## Next Steps
-1. Review API documentation at `/api-docs` (when implemented)
-2. Explore Postman collection for API testing
-3. Set up monitoring with the provided health endpoints
-4. Configure environment-specific variables for staging/production
 
 ---
-*For detailed API specifications, refer to the API Reference documentation.*  
-*For contribution guidelines, see CONTRIBUTING.md.*
+
+## Health Check Endpoint
+Used by frontend and monitoring tools to verify service availability.
+
+```http
+GET /health
+```
+
+Response:
+```json
+{ "status": "ok", "service": "worknest-api" }
+```
+
+---
+
+## API Usage (Frontend / Mobile)
+Below is **one curl example per major domain represented in the Figma designs**.
+
+---
+
+### 1. Authentication (Login)
+```bash
+curl -X POST http://localhost:4000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"user@mail.com","password":"password"}'
+```
+
+---
+
+### 2. Job Search (Landing / Find Job)
+```bash
+curl http://localhost:4000/api/jobs?keyword=designer&location=remote
+```
+
+---
+
+### 3. Job Details Page
+```bash
+curl http://localhost:4000/api/jobs/{jobId}
+```
+
+---
+
+### 4. Save Job
+```bash
+curl -X POST http://localhost:4000/api/jobs/{jobId}/save \
+  -H "Authorization: Bearer <accessToken>"
+```
+
+---
+
+### 5. Apply for Job (CV Upload)
+```bash
+curl -X POST http://localhost:4000/api/applications \
+  -H "Authorization: Bearer <accessToken>" \
+  -F "jobId=123" \
+  -F "cv=@resume.pdf" \
+  -F "coverLetter=@cover.pdf"
+```
+
+---
+
+### 6. Track Applications (User)
+```bash
+curl http://localhost:4000/api/applications/me \
+  -H "Authorization: Bearer <accessToken>"
+```
+
+---
+
+### 7. Admin – List Jobs
+```bash
+curl http://localhost:4000/api/admin/jobs \
+  -H "Authorization: Bearer <adminAccessToken>"
+```
+
+---
+
+### 8. Admin – Create Job
+```bash
+curl -X POST http://localhost:4000/api/admin/jobs \
+  -H "Authorization: Bearer <adminAccessToken>" \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Backend Engineer","company":"WorkNest","status":"ACTIVE"}'
+```
+
+---
+
+### 9. Admin – View Applications for Job
+```bash
+curl http://localhost:4000/api/admin/jobs/{jobId}/applications \
+  -H "Authorization: Bearer <adminAccessToken>"
+```
+
+---
+
+### 10. Admin – Update Application Status
+```bash
+curl -X PATCH http://localhost:4000/api/admin/applications/{id} \
+  -H "Authorization: Bearer <adminAccessToken>" \
+  -H "Content-Type: application/json" \
+  -d '{"status":"INTERVIEW"}'
+```
+
+---
+
+## How Frontend & Mobile Clients Should Use This API
+
+- Treat the backend as **authoritative** for all business logic
+- Always send JWT via `Authorization: Bearer <token>`
+- Handle token refresh using refresh tokens
+- Rely on backend status fields (ACTIVE, DRAFT, CLOSED, PENDING, INTERVIEW, OFFER)
+- Use Cloudinary URLs returned by the API for media rendering
+
+If you can run `docker-compose up` and hit `/health`, you are ready to build against this backend.
+
