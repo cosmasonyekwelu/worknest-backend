@@ -7,7 +7,7 @@ const dbConnection = {
   maxRetries: 5,
 };
 
-export const connectToDB = async () => {
+export const connectDB = async () => {
   if (dbConnection.isConnected) {
     logger.info("✅ Using existing MongoDB connection");
     return;
@@ -28,66 +28,62 @@ export const connectToDB = async () => {
     minPoolSize: 1,
     monitorCommands: process.env.NODE_ENV === "development",
   };
+
   try {
     const conn = await mongoose.connect(
       process.env.MONGO_URI,
-      connectionOptions
+      connectionOptions,
     );
+
     dbConnection.isConnected = conn.connections[0].readyState === 1;
     dbConnection.retryCount = 0;
 
     if (dbConnection.isConnected) {
       logger.info(`✅ MongoDB Connected: ${conn.connection.host}`);
 
-      // Connection event handlers
       mongoose.connection.on("error", (err) => {
         logger.error("❌ MongoDB connection error:", err);
         dbConnection.isConnected = false;
       });
 
       mongoose.connection.on("disconnected", () => {
-        logger.info("ℹ️  MongoDB disconnected");
+        logger.warn("⚠️ MongoDB disconnected");
         dbConnection.isConnected = false;
-        // Attempt to reconnect
+
         if (dbConnection.retryCount < dbConnection.maxRetries) {
           dbConnection.retryCount++;
           logger.info(
-            `ℹ️  Attempting to reconnect (${dbConnection.retryCount}/${dbConnection.maxRetries})...`
+            `🔁 Reconnecting (${dbConnection.retryCount}/${dbConnection.maxRetries})...`,
           );
-          setTimeout(connectToDB, 5000);
+          setTimeout(connectDB, 5000);
         }
       });
     }
   } catch (error) {
     dbConnection.retryCount++;
-    const errorMessage =
-      error instanceof Error ? error.message : "Unknown error";
     logger.error(
-      `❌ MongoDB connection failed (attempt ${dbConnection.retryCount}/${dbConnection.maxRetries}):`,
-      errorMessage
+      `❌ MongoDB connection failed (${dbConnection.retryCount}/${dbConnection.maxRetries})`,
+      error instanceof Error ? error.message : error,
     );
 
     if (dbConnection.retryCount < dbConnection.maxRetries) {
-      logger.info(`ℹ️  Retrying in 5 seconds...`);
-      setTimeout(connectToDB, 5000);
+      setTimeout(connectDB, 5000);
     } else {
-      console.error("❌ Max retries reached. Exiting...");
       process.exit(1);
     }
   }
 };
 
-// Handle graceful shutdown
+/* -------------------- GRACEFUL SHUTDOWN -------------------- */
 export const gracefulShutdown = async () => {
   try {
-    logger.info("\n🛑 Received shutdown signal. Closing server...");
-    // Close MongoDB connection
+    logger.info("🛑 Gracefully shutting down...");
+
     if (mongoose.connection.readyState === 1) {
       await mongoose.connection.close();
-      console.log("✅ MongoDB connection closed");
+      logger.info("✅ MongoDB connection closed");
     }
 
-    logger.info("✅ Server shutdown complete");
     process.exit(0);
   } catch (error) {
     logger.error("❌ Error during shutdown:", error);
@@ -95,12 +91,8 @@ export const gracefulShutdown = async () => {
   }
 };
 
-// Handle uncaught exceptions
-process.on("uncaughtException", (error) => {
-  logger.error("\n❌ UNCAUGHT EXCEPTION! Shutting down...");
-  logger.error(error.name, error.message);
-  // Attempt to close server gracefully
-  gracefulShutdown().finally(() => process.exit(1));
+/* -------------------- UNCAUGHT EXCEPTIONS -------------------- */
+process.on("uncaughtException", async (error) => {
+  logger.error("❌ UNCAUGHT EXCEPTION:", error);
+  await gracefulShutdown();
 });
-
-connectToDB()

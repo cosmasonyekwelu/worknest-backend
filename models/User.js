@@ -20,8 +20,6 @@ const userSchema = new Schema(
       required: [true, "Password is required"],
       select: false,
     },
-    googleId: { String },
-    provider: "google",
     dateOfBirth: {
       type: Date,
     },
@@ -35,11 +33,17 @@ const userSchema = new Schema(
     avatarId: {
       type: String,
     },
-
     role: {
       type: String,
-      enum: ["user", "admin, superadmin"], //predefined options that must be selected
-      default: "user",
+      enum: [
+        "Full Time",
+        "Contract",
+        "Part Time",
+        "Internship",
+        "Freelance",
+        "admin",
+      ],
+      default: "Full Time",
     },
     isVerified: {
       type: Boolean,
@@ -65,8 +69,8 @@ const userSchema = new Schema(
       type: Boolean,
       default: false,
       select: function () {
-        return this.role === "user";
-      }, //show field only if the user role is "user"
+        return this.role === "patient";
+      }, //show field only if the user role is "patient"
     },
   },
   {

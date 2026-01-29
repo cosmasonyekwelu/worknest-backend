@@ -7,8 +7,13 @@ import helmet from "helmet";
 import cookieParser from "cookie-parser";
 import { helmetOptions, compressionOptions } from "./src/lib/options.js";
 import logger from "./src/config/logger.js";
-import { gracefulShutdown } from "./src/config/db.server.js";
-import { catchNotFound, globalErrorHandler } from "./src/middleware/errorHandler.js";
+import { connectDB, gracefulShutdown } from "./src/config/db.server.js";
+import jobRoutes from "./src/routes/JobRoutes.js";
+import { OAuth2Client } from "google-auth-library";
+import {
+  catchNotFound,
+  globalErrorHandler,
+} from "./src/middleware/errorHandler.js";
 
 dotenv.config();
 
@@ -16,15 +21,16 @@ const app = express();
 app.set("trust proxy", 1);
 
 const allowOrigins = [process.env.CLIENT_URL];
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 app.use(
   cors({
     origin: allowOrigins,
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-    optionsSuccessStatus: 200,
     allowedHeaders: ["Content-Type", "Authorization"],
-  })
+    optionsSuccessStatus: 200,
+  }),
 );
 if (process.env.NODE_ENV === "development") {
   app.use(morgan("dev"));
@@ -53,71 +59,62 @@ app.get("/", (req, res) => {
   });
 });
 
+app.use("/api/jobs", jobRoutes);
+
 //handle route errors
-app.use((req, res, next) => {
-  next(catchNotFound());
-});
+// app.use((req, res, next) => {
+//   next(catchNotFound());
+// });
 
-
-//global error handler
-app.use((req, res, next) => {
-next(globalErrorHandler());
-});
+// //global error handler
+// app.use((req, res, next) => {
+//   next(globalErrorHandler());
+// });
+app.use(catchNotFound);
+app.use(globalErrorHandler);
 const PORT = process.env.PORT || 5000;
 
 // Start the server
 
 const startServer = async () => {
   try {
+    await connectDB();
     const server = app.listen(PORT, "0.0.0.0", () => {
       logger.info(
-        `\n✅ Server running in ${process.env.NODE_ENV} mode on port ${PORT}`
+        `\n✅ Server running in ${process.env.NODE_ENV} mode on port ${PORT}`,
       );
       logger.info(`🌐 http://localhost:${PORT}\n`);
     });
     // Handle unhandled promise rejections
     process.on("unhandledRejection", (reason) => {
-      console.error("\n❌ UNHANDLED REJECTION! Shutting down...");
+      logger.error("❌ UNHANDLED REJECTION:", reason);
 
-      const error =
-        reason instanceof Error
-          ? `${reason.name}: ${reason.message}`
-          : String(reason);
-
-      logger.error("Reason:", error);
-
-      // Close server gracefully
       server.close(() => {
-        logger.info("💥 Process terminated due to unhandled rejection");
         process.exit(1);
       });
     });
 
-    // Handle termination signals
+    // Graceful shutdown
     process.on("SIGTERM", gracefulShutdown);
     process.on("SIGINT", gracefulShutdown);
 
-    // Handle any other errors
     server.on("error", (error) => {
-      if (error.syscall !== "listen") throw error;
-
-      switch (error.code) {
-        case "EACCES":
-          logger.error(`Port ${PORT} requires elevated privileges`);
-          process.exit(1);
-          break;
-        case "EADDRINUSE":
-          logger.error(`Port ${PORT} is already in use`);
-          process.exit(1);
-          break;
-        default:
-          throw error;
+      if (error.code === "EACCES") {
+        logger.error(`❌ Port ${PORT} requires elevated privileges`);
+        process.exit(1);
       }
+      if (error.code === "EADDRINUSE") {
+        logger.error(`❌ Port ${PORT} is already in use`);
+        process.exit(1);
+      }
+      throw error;
     });
   } catch (error) {
-    const errorMessage =
-      error instanceof Error ? error.message : "Unknown error";
-    logger.error(`\n❌ Failed to start server: ${errorMessage}`);
+    logger.error(
+      `❌ Failed to start server: ${
+        error instanceof Error ? error.message : "Unknown error"
+      }`,
+    );
     process.exit(1);
   }
 };
