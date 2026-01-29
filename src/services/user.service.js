@@ -3,6 +3,7 @@ import mailService from "./email.service.js";
 import responseHandler from "../lib/responseHandler.js";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
+import { uploadToCloudinary, deleteFromCloudinary } from "../lib/cloudinary.js";
 const { errorResponse, notFoundResponse } = responseHandler;
 
 const userService = {
@@ -64,15 +65,32 @@ const userService = {
     await user.save();
     return user;
   },
-  logout: async (req, res, next) => {
-    res.cookie("userRefreshToken", "", {
-      maxAge: 0,
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-      path: "/api/v1/auth/refresh-token",
+  uploadAvatar: async (userId, avatar, next) => {
+    const user = await User.findById(userId);
+    if (!user) {
+      return next(notFoundResponse("No user found with that email"));
+    }
+    if (!avatar) {
+      return next(errorResponse("No file uploaded", 400));
+    }
+    //check if user has avatar already
+    const currentAvatar = user.avatar;
+    const currentAvatarId = user.avatarId;
+    if (currentAvatar) {
+      //if avatar exists, delete and replace with new avatar
+      await deleteFromCloudinary(currentAvatarId);
+    }
+    const { url, public_id } = await uploadToCloudinary(avatar, {
+      folder: "Worknest/avatars",
+      width: 200,
+      height: 200,
+      crop: "fit",
+      format: "webp",
     });
-    return true;
+    user.avatar = url || user.avatar;
+    user.avatarId = public_id || user.avatarId;
+    await user.save();
+    return user;
   },
   updateUserPassword: async (userId, userData, next) => {
     const user = await User.findById(userId).select("+password");
@@ -103,21 +121,26 @@ const userService = {
     const updatedUser = await user.save();
     return updatedUser;
   },
-//   change
+  // update user
   updateUser: async (userId, userData, next) => {
     const user = await User.findById(userId);
     if (!user) {
       return next(notFoundResponse("No user found with that id"));
     }
+
+    // Email uniqueness check
     if (userData.email) {
-        const emailExists = await User.findOne({
-        email: userData.email,
+      const emailExists = await User.findOne({
+        email: userData.email.toLowerCase(),
         _id: { $ne: userId },
       });
-        if (emailExists) {
+      if (emailExists) {
         return next(errorResponse("User with email already exists", 400));
       }
+      user.email = userData.email.toLowerCase().trim();
     }
+
+    // Phone uniqueness check
     if (userData.phone) {
       const phoneExists = await User.findOne({
         phone: userData.phone,
@@ -126,83 +149,30 @@ const userService = {
       if (phoneExists) {
         return next(errorResponse("User with phone already exists", 400));
       }
+      user.phone = userData.phone.trim();
     }
- const allowedUpdates = ["fullname", "email", "phone"];
+
+    // Allowed profile updates
+    const allowedUpdates = ["fullname", "dateOfBirth", "bio"];
 
     for (const key of allowedUpdates) {
-      const value = userData[key];
-      if (value !== undefined && value !== null) {
-        user[key] = value;
+      if (userData[key] !== undefined && userData[key] !== null) {
+        user[key] = userData[key];
       }
     }
     const updatedUser = await user.save();
     return updatedUser;
   },
-// delete user account
+  // delete user account
   deleteAccount: async (userId, next) => {
     const user = await User.findById(userId);
     if (!user) {
       return next(notFoundResponse("Account not found"));
     }
-    // if (user.avatarId) {
-    //   await deleteFromCloudinary(user.avatarId);
-    // } not sure if we need avatar field
+    if (user.avatarId) {
+      await deleteFromCloudinary(user.avatarId);
+    }
     await User.findByIdAndDelete(userId);
-    return true;
-  },
-    getAllUsers: async (page = 1, limit = 3, query = "", role = "", next) => {
-    const sanitizeQuery =
-      query || role
-        ? (query || role).toLowerCase().replace(/[^\w\s]/gi, "")
-        : "";
-    const [users, total] = sanitizeQuery
-      ? await Promise.all([
-          User.find({
-            $or: [
-              { fullname: { $regex: sanitizeQuery, $options: "i" } },
-              { role: { $regex: sanitizeQuery, $options: "i" } },
-            ],
-          })
-            .sort({ createdAt: -1 })
-            .skip((page - 1) * limit)
-            .limit(limit),
-          User.countDocuments({
-            $or: [
-              { fullname: { $regex: sanitizeQuery, $options: "i" } },
-              { role: { $regex: sanitizeQuery, $options: "i" } },
-            ],
-          }),
-        ])
-      : await Promise.all([
-          User.find()
-            .sort({ createdAt: -1 })
-            .skip((page - 1) * limit)
-            .limit(limit),
-          User.countDocuments(),
-        ]);
-    if (!users) {
-      return next(notFoundResponse("No users found"));
-    }
-    return {
-      meta: {
-        currentPage: page,
-        totalPages: Math.ceil(total / limit),
-        total,
-        hasMore: (page - 1) * limit + users.length < total,
-        limit,
-      },
-      users,
-    };
-  },
-    deleteAccountAdmins: async (userId, next) => {
-    const user = await User.findById(userId);
-    if (!user) {
-      return next(notFoundResponse("Account not found"));
-    }
-    // if (user.avatarId) {
-    //   await deleteFromCloudinary(user.avatarId);
-    // } not sure if we need avatar field
-    await user.deleteOne();
     return true;
   },
 };

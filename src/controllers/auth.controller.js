@@ -64,3 +64,9 @@ export const resendVerificationToken = tryCatchFn(async (req, res, next) => {
     200
   );
 });
+
+export const logout = tryCatchFn(async (req, res, next) => {
+  const responseData = await authService.logout(req, res, next);
+  if (!responseData) return;
+  return successResponse(res, responseData, "Logged out successfully", 200);
+});
