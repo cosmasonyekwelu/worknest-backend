@@ -1,12 +1,15 @@
 import Jobs from "../models/jobs";
 
-export const searchJobService = async ({
+const searchJobService = async ({
   keyword,
   location,
   jobType,
   category,
-  experienceLevel,
   salaryRange,
+  companyName,
+  experienceLevel,
+  jobDescription,
+  status,
   page = 1,
   limit = 10,
 }) => {
@@ -15,30 +18,37 @@ export const searchJobService = async ({
   if (keyword) {
     filter.$or = [
       { title: { $regex: keyword, $options: "i" } },
+      { location: { $regex: keyword, $options: "i" } },
+      { companyName: { $regex: keyword, $options: "i" } },
+      { experienceLevel: { $regex: keyword, $options: "i" } },
       { jobDescription: { $regex: keyword, $options: "i" } },
-      { responsibilities: { $regex: keyword, $options: "i" } },
     ];
   }
 
-  if (location) filter.location = location;
+  if (status) filter.status = status;
   if (jobType) filter.jobType = jobType;
   if (category) filter.category = category;
   if (experienceLevel) filter.experienceLevel = experienceLevel;
-  if (salaryRange) filter.salaryRange = salaryRange;
 
-  const skip = (page - 1) * limit;
+  if (salaryMin || salaryMax) {
+    filter.salaryRange = {};
 
-  const jobs = await Jobs.find(filter)
-    .sort({ createdAt: -1 })
-    .skip(skip)
-    .limit(limit);
+    if (salaryMin) filter.salaryRange.$gte = Number(salaryMin);
+    if (salaryMax) filter.salaryRange.$lte = Number(salaryMax);
+  }
+
+  const skip = (Number(page) - 1) * Number(limit);
 
   const totalJobs = await Jobs.countDocuments(filter);
+  const jobs = await Jobs.find(filter).sort(-createdAt).skip(skip).limit(limit);
 
   return {
-    jobs,
+    status: "success",
+    data: jobs,
     totalJobs,
-    currentPage: page,
+    page,
     totalPages: Math.ceil(totalJobs / limit),
   };
 };
+
+export { searchJobService };

@@ -1,10 +1,11 @@
 import { searchJobsService } from "../services/job.service.js";
 import tryCatchFn from "../lib/tryCatchFn.js";
 import Jobs from "../models/jobs.js";
+import User from "../models/user.js";
 
 const createJobs = tryCatchFn(async (req, res) => {
   const {
-    keyword,
+    title,
     location,
     jobType,
     category,
@@ -17,10 +18,12 @@ const createJobs = tryCatchFn(async (req, res) => {
     companyName,
     companyWebsite,
     companyLogo,
+    applicationQuestions,
+    status,
   } = req.body;
 
   if (
-    !keyword ||
+    !title ||
     !location ||
     !jobType ||
     !category ||
@@ -37,7 +40,7 @@ const createJobs = tryCatchFn(async (req, res) => {
   }
 
   const job = await Jobs.create({
-    keyword,
+    title,
     location,
     jobType,
     category,
@@ -50,20 +53,28 @@ const createJobs = tryCatchFn(async (req, res) => {
     companyName,
     companyWebsite,
     companyLogo,
+    applicationQuestions,
+    status,
   });
 
-  return res
-    .status(201)
-    .json({
-      status: "success",
-      message: "Job created successfully",
-      data: job,
-    });
+  return res.status(201).json({
+    status: "success",
+    message: "Job created successfully",
+    data: job,
+  });
 });
 
 const getJobs = tryCatchFn(async (req, res) => {
-  const { keyword, location, jobType, category, experienceLevel, salaryRange, page, limit } =
-    req.query;
+  const {
+    keyword,
+    location,
+    jobType,
+    category,
+    experienceLevel,
+    salaryRange,
+    page,
+    limit,
+  } = req.query;
 
   const job = await searchJobsService({
     keyword,
@@ -119,4 +130,78 @@ const deleteJob = tryCatchFn(async (req, res) => {
     .json({ status: "success", message: "Job deleted successfully" });
 });
 
-export { createJobs, getJobs, getJobById, updateJob, deleteJob };
+const saveJobs = tryCatchFn(async (req, res) => {
+  const userId = req.user._id;
+  const jobId = req.params.id;
+
+  const job = await Jobs.findById(jobId);
+  if (!job) {
+    return res.status(404).json({ message: "Job not found" });
+  }
+
+  const user = await User.findById(userId);
+
+  if (!user.savedJobs.includes(jobId)) {
+    user.savedJobs.push(jobId);
+    await user.save();
+  }
+
+  return res.status(200).json({
+    status: "success",
+    message: "Job saved successfully",
+    data: user.savedJobs,
+  });
+});
+
+const unsaveJob = tryCatchFn(async (req, res) => {
+  const userId = req.user._id;
+  const jobId = req.params.id;
+
+  const user = await User.findById(userId);
+
+  user.savedJobs = user.savedJobs.filter(
+    (id) => id.toString() !== jobId.toString(),
+  );
+  await user.save();
+
+  return res.status(200).json({
+    status: "success",
+    message: "Job unsaved successfully",
+  });
+});
+
+const getSavedJobs = tryCatchFn(async (req, res) => {
+  const userId = req.user._id;
+
+  const page = Number(req.query.page) || 1;
+  const limit = Number(req.query.limit) || 10;
+  const skip = (page - 1) * limit;
+
+  const user = await User.findById(userId).populate({
+    path: "savedJobs",
+    options: { skip, limit, sort: { createdAt: -1 } },
+  });
+
+  const total = user.savedJobs.length;
+  const totalPages = Math.ceil(total / limit);
+
+  return res.status(200).json({
+    status: "success",
+    message: "Saved jobs fetched successfully",
+    data: user.savedJobs,
+    total,
+    page,
+    totalPages,
+  });
+});
+
+export {
+  createJobs,
+  getJobs,
+  getJobById,
+  updateJob,
+  deleteJob,
+  saveJobs,
+  unsaveJob,
+  getSavedJobs,
+};

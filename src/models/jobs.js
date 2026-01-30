@@ -14,13 +14,7 @@ const jobSchema = new Schema(
 
     jobType: {
       type: String,
-      enum: [
-        "Full Time / Permanent",
-        "Contract",
-        "Part Time",
-        "Internship",
-        "Freelance",
-      ],
+      enum: ["Full-Time", "Contract", "Part-Time", "Internship", "Freelance"],
 
       required: true,
     },
@@ -71,20 +65,22 @@ const jobSchema = new Schema(
     },
 
     salaryRange: {
-      type: String,
-      enum: [
-        "350000-400000",
-        "300000-350000",
-        "250000-300000",
-        "150000-200000",
-        "100000-150000",
-      ],
-      required: true,
+      type: Number,
     },
 
     companyName: {
-      type: true,
+      type: String,
       required: true,
+    },
+
+    status: {
+      type: String,
+      enum: [ "active", "draft", "closed"],
+      default: "draft",
+    },
+
+    applicationQuestions: {
+      type: String,
     },
   },
   { timestamps: true },

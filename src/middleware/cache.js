@@ -14,7 +14,7 @@ export const cacheMiddleware =
     //create unique key based on our userId, api routes and query parameters
     const userId = req.user.id || "anonymous";
     const cacheKey = `user_${userId}_${key}_${req.originalUrl}_${JSON.stringify(
-      req.query
+      req.query,
     )}`;
     try {
       const cachedData = cache.get(cacheKey); //retrieve data associated with cachedKey
@@ -63,7 +63,7 @@ export const clearCache =
     console.log(
       `Cleared ${matchingKeys.length} cache entries for ${
         userId ? `user ${userId}` : "all users"
-      }`
+      }`,
     );
     next();
   };
