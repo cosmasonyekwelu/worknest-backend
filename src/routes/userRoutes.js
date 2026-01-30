@@ -2,6 +2,7 @@ import express from "express";
 import {
   authenticateUser,
   login,
+  logout,
   refreshAccessToken,
   register,
   resendVerificationToken,
@@ -18,17 +19,15 @@ import {
   validateSignUpSchema,
   validateUserSchema,
 } from "../lib/dataSchema.js";
-import { verifyAuth, authorizedRoles } from "../middleware/authenticate.js";
+import { verifyAuth } from "../middleware/authenticate.js";
 import { cacheMiddleware, clearCache } from "../middleware/cache.js";
 import {
   deleteAccount,
-  deleteAccountAdmins,
   forgotPassword,
-  getAllUsers,
-  logout,
   resetPassword,
   updateUser,
   updateUserPassword,
+  uploadAvatar,
 } from "../controllers/user.controller.js";
 
 const router = express.Router();
@@ -103,22 +102,14 @@ router.delete(
   deleteAccount,
 );
 
-router.get(
-  "/all",
-  verifyAuth,
-  authorizedRoles("admin"),
-  cacheMiddleware("users", 3600),
-  getAllUsers,
-);
-
 router.post("/logout", verifyAuth, clearCache("auth_user"), logout);
 
-router.delete(
-  "/:id/delete-account",
+router.patch(
+  "/upload-avatar",
   verifyAuth,
-  authorizedRoles("admin"),
-  clearCache("users"),
-  deleteAccountAdmins,
+  clearCache("auth_user"),
+  uploadAvatar
 );
+
 
 export default router;
