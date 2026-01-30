@@ -16,6 +16,9 @@ export const validateSignUpSchema = z.object({
     .regex(/[a-z]/, {
       message: "Password must contain at least one lowercase letter",
     })
+    .regex(/[0-9]/, {
+      message: "password must contain at least one number",
+    })
     .regex(/[!@#$%^&*(),.?":{}|<>]/, {
       message: "Password must contain at least one special character",
     }),
@@ -34,6 +37,9 @@ export const validateSignInSchema = z.object({
     })
     .regex(/[a-z]/, {
       message: "Password must contain at least one lowercase letter",
+    })
+    .regex(/[0-9]/, {
+      message: "password must contain at least one number",
     })
     .regex(/[!@#$%^&*(),.?":{}|<>]/, {
       message: "Password must contain at least one special character",
@@ -136,12 +142,14 @@ export const updatePasswordSchema = z.object({
 export const validateUserSchema = z.object({
   fullname: z.string().min(3, {
     message: "Full name must be at least 3 characters long",
-  }),
-  email: z.string().email(),
-  phone: z.string().min(10, {
-    message: "Phone number must be at least 10 characters long",
-  }),
-  dateOfBirth: z.string().date(),
+  }).optional(),
+  email: z.string().email().optional(),
+  phone: z
+    .string()
+    .min(10, {
+      message: "Phone number must be at least 10 characters long",
+    })
+    .optional(),
+  dateOfBirth: z.string().optional(),
+  bio: z.string().max(1000).optional(),
 });
-
-
