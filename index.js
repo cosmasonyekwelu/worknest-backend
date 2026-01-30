@@ -12,6 +12,9 @@ import { catchNotFound, globalErrorHandler } from "./src/middleware/errorHandler
 
 dotenv.config();
 
+// api routes
+import userRoutes from "./src/routes/userRoutes.js";
+import adminRoutes from "./src/routes/adminRoutes.js";
 const app = express();
 app.set("trust proxy", 1);
 
@@ -52,6 +55,10 @@ app.get("/", (req, res) => {
     timestamp: req.requestTime,
   });
 });
+
+// assemble routes
+app.use("/api/v1/auth", userRoutes);
+app.use("/api/v1/admin", adminRoutes);
 
 //handle route errors
 app.use((req, res, next) => {
