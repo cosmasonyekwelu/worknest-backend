@@ -1,4 +1,4 @@
-import { searchJobsService } from "../services/job.service.js";
+import { searchJobService } from "../services/job.service.js";
 import tryCatchFn from "../lib/tryCatchFn.js";
 import Jobs from "../models/jobs.js";
 import User from "../models/user.js";
@@ -76,7 +76,7 @@ const getJobs = tryCatchFn(async (req, res) => {
     limit,
   } = req.query;
 
-  const job = await searchJobsService({
+  const job = await searchJobService({
     keyword,
     location,
     jobType,

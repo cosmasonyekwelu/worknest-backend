@@ -22,17 +22,7 @@ router.get("/all", verifyAuth, getJobs);
 router.get("/:id/all", verifyAuth, getJobById);
 
 router.post("/:id/save", verifyAuth, authorizedRoles("applicant"), saveJobs);
-router.delete(
-  "/:id/save",
-  verifyAuth,
-  authorizedRoles("applicant"),
-  unsaveJob,
-);
-router.get(
-  "/save/all",
-  verifyAuth,
-  authorizedRoles("applicant"),
-  getSavedJobs,
-);
+router.delete("/:id/save", verifyAuth, authorizedRoles("applicant"), unsaveJob);
+router.get("/save/all", verifyAuth, authorizedRoles("applicant"), getSavedJobs);
 
 export default router;

@@ -18,6 +18,8 @@ dotenv.config();
 // api routes
 import userRoutes from "./src/routes/userRoutes.js";
 import adminRoutes from "./src/routes/adminRoutes.js";
+import jobRoutes from "./src/routes/jobRoutes.js";
+
 const app = express();
 app.set("trust proxy", 1);
 
@@ -64,16 +66,22 @@ app.get("/", (req, res) => {
 // assemble routes
 app.use("/api/v1/auth", userRoutes);
 app.use("/api/v1/admin", adminRoutes);
+app.use("/api/v1/jobs", jobRoutes);
 
 //handle route errors
-app.use((req, res, next) => {
-  next(catchNotFound());
-});
+// app.use((req, res, next) => {
+//   next(catchNotFound());
+// });
+
+app.use(catchNotFound);
 
 //global error handler
-app.use((req, res, next) => {
-  next(globalErrorHandler());
-});
+// app.use((req, res, next) => {
+//   next(globalErrorHandler());
+// });
+
+app.use(globalErrorHandler);
+
 const PORT = process.env.PORT || 5000;
 
 // Start the server
