@@ -149,7 +149,6 @@ const saveJobs = tryCatchFn(async (req, res) => {
   return res.status(200).json({
     status: "success",
     message: "Job saved successfully",
-    data: user.savedJobs,
   });
 });
 

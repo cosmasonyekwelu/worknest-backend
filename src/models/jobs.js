@@ -34,14 +34,6 @@ const jobSchema = new Schema(
 
     category: {
       type: String,
-      enum: [
-        "Information Technology",
-        "Advertising/PR",
-        "Media & Communication",
-        "Fashion",
-        "Health & Fitness",
-      ],
-
       required: true,
     },
 
@@ -51,21 +43,22 @@ const jobSchema = new Schema(
     },
 
     responsibilities: {
-      type: String,
+      type: [String],
       required: true,
     },
 
     requirement: {
-      type: String,
+      type: [String],
       required: true,
     },
 
     benefits: {
-      type: String,
+      type: [String],
     },
 
     salaryRange: {
-      type: Number,
+      min: Number,
+      max: Number,
     },
 
     companyName: {
@@ -75,12 +68,12 @@ const jobSchema = new Schema(
 
     status: {
       type: String,
-      enum: [ "active", "draft", "closed"],
+      enum: ["active", "draft", "closed"],
       default: "draft",
     },
 
     applicationQuestions: {
-      type: String,
+      type: [String],
     },
   },
   { timestamps: true },

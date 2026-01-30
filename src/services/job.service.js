@@ -1,4 +1,4 @@
-import Jobs from "../models/jobs";
+import Jobs from "../models/jobs.js";
 
 const searchJobService = async ({
   keyword,
@@ -9,6 +9,8 @@ const searchJobService = async ({
   companyName,
   experienceLevel,
   jobDescription,
+  salaryMin,
+  salaryMax,
   status,
   page = 1,
   limit = 10,
@@ -30,17 +32,30 @@ const searchJobService = async ({
   if (category) filter.category = category;
   if (experienceLevel) filter.experienceLevel = experienceLevel;
 
-  if (salaryMin || salaryMax) {
-    filter.salaryRange = {};
+  // if (salaryMin || salaryMax) {
 
-    if (salaryMin) filter.salaryRange.$gte = Number(salaryMin);
-    if (salaryMax) filter.salaryRange.$lte = Number(salaryMax);
+  //   if (salaryMin) filter.salaryRange.$gte = Number(salaryMin);
+  //   if (salaryMax) filter.salaryRange.$lte = Number(salaryMax);
+  // }
+
+  if (salaryMin || salaryMax) {
+    if (salaryMin) {
+      filter["salaryRange.min"] = { $gte: Number(salaryMin) };
+    }
+
+    if (salaryMax) {
+      filter["salaryRange.max"] = { $lte: Number(salaryMax) };
+    }
   }
+
+  console.log("FILTER USED:", filter);
+
+  let sort = "-createdAt";
 
   const skip = (Number(page) - 1) * Number(limit);
 
   const totalJobs = await Jobs.countDocuments(filter);
-  const jobs = await Jobs.find(filter).sort(-createdAt).skip(skip).limit(limit);
+  const jobs = await Jobs.find(filter).sort(sort).skip(skip).limit(limit);
 
   return {
     status: "success",
