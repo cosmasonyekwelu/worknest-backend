@@ -70,22 +70,36 @@ const getJobs = tryCatchFn(async (req, res) => {
     location,
     jobType,
     category,
+    salaryMin,
+    salaryMax,
     experienceLevel,
     salaryRange,
+    status,
     page,
     limit,
   } = req.query;
 
-  const job = await searchJobService({
+  const safeLimit = Math.min(Number(limit) || 10, 50);
+
+  const filters = {
     keyword,
     location,
     jobType,
     category,
+    salaryMin,
+    salaryMax,
+    status,
     experienceLevel,
     salaryRange,
     page: Number(page) || 1,
-    limit: Number(limit) || 10,
-  });
+    limit: safeLimit,
+  };
+
+  if (req.user.role === "applicant") {
+    filters.status = "active";
+  }
+
+  const job = await searchJobService(filters);
 
   return res.status(200).json({
     status: "success",
@@ -176,12 +190,14 @@ const getSavedJobs = tryCatchFn(async (req, res) => {
   const limit = Number(req.query.limit) || 10;
   const skip = (page - 1) * limit;
 
-  const user = await User.findById(userId).populate({
+  const user = await User.findById(userId).select("savedJobs");
+  const total = user.savedJobs.length;
+
+  await user.populate({
     path: "savedJobs",
-    options: { skip, limit, sort: { createdAt: -1 } },
+    options: { skip, limit, sort: { created: -1 } },
   });
 
-  const total = user.savedJobs.length;
   const totalPages = Math.ceil(total / limit);
 
   return res.status(200).json({

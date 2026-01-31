@@ -2,13 +2,8 @@ import Jobs from "../models/jobs.js";
 
 const searchJobService = async ({
   keyword,
-  location,
-  jobType,
   category,
-  salaryRange,
-  companyName,
-  experienceLevel,
-  jobDescription,
+  jobType,
   salaryMin,
   salaryMax,
   status,
@@ -30,25 +25,16 @@ const searchJobService = async ({
   if (status) filter.status = status;
   if (jobType) filter.jobType = jobType;
   if (category) filter.category = category;
-  if (experienceLevel) filter.experienceLevel = experienceLevel;
 
-  // if (salaryMin || salaryMax) {
-
-  //   if (salaryMin) filter.salaryRange.$gte = Number(salaryMin);
-  //   if (salaryMax) filter.salaryRange.$lte = Number(salaryMax);
-  // }
-
-  if (salaryMin || salaryMax) {
-    if (salaryMin) {
-      filter["salaryRange.min"] = { $gte: Number(salaryMin) };
-    }
-
-    if (salaryMax) {
-      filter["salaryRange.max"] = { $lte: Number(salaryMax) };
-    }
+  if (salaryMin) {
+    filter["salaryRange.min"] = { $gte: Number(salaryMin) };
   }
 
-  console.log("FILTER USED:", filter);
+  if (salaryMax) {
+    filter["salaryRange.max"] = { $lte: Number(salaryMax) };
+  }
+
+  // console.log("FILTER USED:", filter);
 
   let sort = "-createdAt";
 
