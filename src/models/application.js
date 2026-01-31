@@ -1,100 +1,76 @@
-import mongoose from "mongoose";
+import mongoose, { Schema, model } from "mongoose";
 
-/**
- * Application Schema
- * Represents a single job application submitted by a user
- */
-const applicationSchema = new mongoose.Schema(
+const applicationSchema = new Schema(
   {
-    /**
-     * Reference to the user who applied
-     * Indexed for fast lookups when listing user applications
-     */
-    user: {
-      type: mongoose.Schema.Types.ObjectId,
+    applicant: {
+      type: Schema.Types.ObjectId,
       ref: "User",
       required: true,
-      index: true
     },
-
-    /**
-     * Reference to the job being applied for
-     * Indexed for admin job → applications queries
-     */
     job: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Job",
+      type: Schema.Types.ObjectId,
+      ref: "Jobs",
       required: true,
-      index: true
     },
-
-    /**
-     * Cloudinary URL of uploaded resume
-     * Required field (UI enforces resume upload)
-     */
     resumeUrl: {
       type: String,
-      required: true
+      required: [true, "Resume is required"],
     },
-
-    /**
-     * Cloudinary public_id (used for future delete/update)
-     */
-    resumeId: {
-      type: String
-    },
-
-    /**
-     * Optional links provided by candidate
-     */
     portfolioUrl: String,
     linkedinUrl: String,
-
-    /**
-     * Answers to custom application questions
-     * Stored as structured data for future analytics
-     */
     answers: [
       {
         question: String,
-        answer: String
-      }
+        answer: String,
+      },
     ],
-
-    /**
-     * Current application status
-     * Must align with README/API reference
-     */
     status: {
       type: String,
-      enum: ["PENDING", "REVIEWED", "INTERVIEW", "OFFER", "REJECTED"],
-      default: "PENDING",
-      index: true
+      enum: [
+        "submitted",
+        "in_review",
+        "shortlisted",
+        "interview",
+        "offer",
+        "rejected",
+        "hired",
+      ],
+      default: "submitted",
     },
-
-    /**
-     * Timeline history of status transitions
-     * Used by "Application Tracking" UI
-     */
-    timeline: [
+    internalNote: {
+      type: String,
+      select: false, // ❌ Fix: Changed from 'private: true' to 'select: false'
+    },
+    statusHistory: [
       {
         status: String,
-        at: {
+        changedAt: {
           type: Date,
-          default: Date.now
-        }
-      }
-    ]
+          default: Date.now,
+        },
+        changedBy: {
+          type: Schema.Types.ObjectId,
+          ref: "User",
+        },
+        note: String,
+      },
+    ],
   },
-  {
-    timestamps: true // adds createdAt & updatedAt automatically
-  }
+  { timestamps: true }
 );
 
-/**
- * Prevent duplicate applications
- * One user can only apply once per job
- */
-applicationSchema.index({ user: 1, job: 1 }, { unique: true });
+// Compound index to prevent duplicate applications
+applicationSchema.index({ applicant: 1, job: 1 }, { unique: true });
 
-export default mongoose.model("Application", applicationSchema);
+// ❌ Fix: REMOVED the duplicate status history middleware
+// We'll handle status history only in the service layer
+
+// Static method to check if user has already applied
+applicationSchema.statics.hasApplied = async function (applicantId, jobId) {
+  const application = await this.findOne({ applicant: applicantId, job: jobId });
+  return !!application;
+};
+
+const Application = mongoose.models.Application || model("Application", applicationSchema);
+
+export default Application;
