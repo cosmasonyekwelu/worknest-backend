@@ -13,7 +13,11 @@ import {
 } from "../controllers/admin.controller.js";
 import { rateLimiter } from "../middleware/rateLimit.js";
 import { validateFormData } from "../middleware/validateForm.js";
-import { validateSignInSchema, validateUserSchema, updatePasswordSchema } from "../lib/dataSchema.js";
+import {
+  validateSignInSchema,
+  validateUserSchema,
+  updatePasswordSchema,
+} from "../lib/dataSchema.js";
 import { verifyAuth, authorizedRoles } from "../middleware/authenticate.js";
 import { cacheMiddleware, clearCache } from "../middleware/cache.js";
 
@@ -24,7 +28,7 @@ router.post(
   "/login",
   rateLimiter,
   validateFormData(validateSignInSchema),
-  adminLogin
+  adminLogin,
 );
 
 // Get authenticated admin details
@@ -33,7 +37,7 @@ router.get(
   verifyAuth,
   authorizedRoles("admin"),
   cacheMiddleware("admin_profile", 3600),
-  authenticateAdmin
+  authenticateAdmin,
 );
 
 // Update admin profile (reuses userService.updateUser)
@@ -42,13 +46,13 @@ router.patch(
   verifyAuth,
   authorizedRoles("admin"),
   validateFormData(validateUserSchema),
-  updateAdminProfile
+  updateAdminProfile,
 );
 router.patch(
   "/upload-avatar",
   verifyAuth,
   clearCache("admin_profile"),
-  adminUploadAvatar
+  adminUploadAvatar,
 );
 
 // Update admin password (reuses userService.updateUserPassword)
@@ -57,7 +61,7 @@ router.patch(
   verifyAuth,
   authorizedRoles("admin"),
   validateFormData(updatePasswordSchema),
-  updateAdminPassword
+  updateAdminPassword,
 );
 
 // Refresh admin access token
@@ -68,7 +72,7 @@ router.delete(
   verifyAuth,
   authorizedRoles("admin"),
   clearCache("users"),
-  deleteAccountAdmins
+  deleteAccountAdmins,
 );
 
 router.delete(
@@ -87,7 +91,5 @@ router.get(
 );
 
 router.post("/logout", verifyAuth, clearCache("admin_profile"), logoutAdmin);
-
-
 
 export default router;
