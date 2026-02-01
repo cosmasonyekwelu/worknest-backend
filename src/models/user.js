@@ -67,7 +67,15 @@ const userSchema = new Schema(
     isCompletedOnboard: {
       type: Boolean,
       default: false,
+    },
+
+    savedJobs: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Jobs",
       },
+    ],
+    
   },
   {
     timestamps: true,
