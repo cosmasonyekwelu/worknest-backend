@@ -132,6 +132,7 @@ const updateJob = tryCatchFn(async (req, res) => {
     .json({ status: "success", message: "Job updated successfully" });
 });
 
+
 const deleteJob = tryCatchFn(async (req, res) => {
   const job = await Jobs.findByIdAndDelete(req.params.id);
 
@@ -187,18 +188,21 @@ const getSavedJobs = tryCatchFn(async (req, res) => {
   const userId = req.user._id;
 
   const page = Number(req.query.page) || 1;
-  const limit = Number(req.query.limit) || 10;
+  let limit = Number(req.query.limit) || 10;
+
+  if (limit > 50) limit = 50;
+
   const skip = (page - 1) * limit;
 
   const user = await User.findById(userId).select("savedJobs");
+
   const total = user.savedJobs.length;
+  const totalPages = Math.ceil(total / limit);
 
   await user.populate({
     path: "savedJobs",
     options: { skip, limit, sort: { created: -1 } },
   });
-
-  const totalPages = Math.ceil(total / limit);
 
   return res.status(200).json({
     status: "success",
