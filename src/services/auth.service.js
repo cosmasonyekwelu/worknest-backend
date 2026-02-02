@@ -1,9 +1,9 @@
 import User from "../models/user.js";
-import responseHandler from "../lib/responseHandler.js";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import mailService from "./email.service.js"
 import jwt from "jsonwebtoken";
+import responseHandler from "../lib/responseHandler.js";
 
 const { errorResponse, notFoundResponse } = responseHandler;
 
