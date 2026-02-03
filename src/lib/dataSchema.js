@@ -22,6 +22,7 @@ export const validateSignUpSchema = z.object({
     .regex(/[!@#$%^&*(),.?":{}|<>]/, {
       message: "Password must contain at least one special character",
     }),
+  role: z.enum(["admin", "applicant"]).optional(),
 });
 
 export const validateSignInSchema = z.object({
