@@ -61,15 +61,12 @@ app.use("/api/v1/auth", userRoutes);
 app.use("/api/v1/admin", adminRoutes);
 
 //handle route errors
-app.use((req, res, next) => {
-  next(catchNotFound());
-});
+app.use(catchNotFound)
 
 
 //global error handler
-app.use((req, res, next) => {
-next(globalErrorHandler());
-});
+app.use(globalErrorHandler)
+
 const PORT = process.env.PORT || 5000;
 
 // Start the server
