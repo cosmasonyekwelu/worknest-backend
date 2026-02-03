@@ -39,7 +39,7 @@ export const refreshAccessToken = tryCatchFn(async (req, res, next) => {
     res,
     { accessToken },
     "AccessToken refreshed succssfully",
-    200
+    200,
   );
 });
 
@@ -47,7 +47,7 @@ export const verifyUserAccount = tryCatchFn(async (req, res, next) => {
   const { id: userId } = req.user;
   const data = await authService.verifyUserAccount(
     { userId, ...req.body },
-    next
+    next,
   );
   if (!data) return;
   return successResponse(res, data, "Account verified succssfully", 200);
@@ -61,7 +61,7 @@ export const resendVerificationToken = tryCatchFn(async (req, res, next) => {
     res,
     null,
     "Verification token has been sent to your email",
-    200
+    200,
   );
 });
 

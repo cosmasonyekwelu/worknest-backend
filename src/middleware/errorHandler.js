@@ -58,6 +58,8 @@ export const globalErrorHandler = (err, req, res, next) => {
 };
 
 //Catch 404 error routes
-export const catchNotFound = (req, res) => {
+export const catchNotFound = (req, res,) => {
   errorResponse(`Cant find ${req.originalUrl} on this server!`, 404);
 };
+
+
