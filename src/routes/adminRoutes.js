@@ -40,6 +40,9 @@ router.get(
   authenticateAdmin,
 );
 
+router.post("/refresh-token", refreshAdminAccessToken);
+
+
 // Update admin profile (reuses userService.updateUser)
 router.patch(
   "/profile",
@@ -64,8 +67,6 @@ router.patch(
   updateAdminPassword,
 );
 
-// Refresh admin access token
-router.post("/refresh-token", refreshAdminAccessToken);
 
 router.delete(
   "/:id/delete-account",

@@ -134,7 +134,7 @@ export const passwordResetTemplate = (name, email, resetToken) => `
               <p>Hello ${name},</p>
               <p>Follow the link to reset your password:</p>
               <p style="font-weight: bold; font-size: 20px; color:rgb(0, 0, 0);">${
-                process.env.CLIENT_BASE_URL
+                process.env.CLIENT_URL
               }/account/reset-password?email=${email}&token=${resetToken}</p>
               <p>Do not share this link with anyone.</p>  
               <p>This link will expire in 15 minutes.</p>  
