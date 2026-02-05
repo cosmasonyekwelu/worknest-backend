@@ -36,7 +36,7 @@ verifyEmailConnection().catch(console.error);
 
 export const sendEmail = async ({ to, subject, html }) => {
   const mailOptions = {
-    from: "Worknest <worknest@gmail.com>",
+    from: "Worknest <worknestnig@gmail.com>",
     to,
     subject,
     html,
