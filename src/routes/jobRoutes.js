@@ -18,7 +18,7 @@ router.post("/create", verifyAuth, authorizedRoles("admin"), createJobs);
 router.patch("/:id/update", verifyAuth, authorizedRoles("admin"), updateJob);
 router.delete("/:id/delete", verifyAuth, authorizedRoles("admin"), deleteJob);
 
-router.get("/all", verifyAuth, getJobs);
+router.get("/all", getJobs);
 router.get("/saved", verifyAuth, authorizedRoles("applicant"), getSavedJobs);
 
 router.get("/:id", verifyAuth, getJobById);
