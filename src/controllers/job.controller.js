@@ -95,9 +95,9 @@ const getJobs = tryCatchFn(async (req, res) => {
     limit: safeLimit,
   };
 
-  if (req.user.role === "applicant") {
-    filters.status = "active";
-  }
+  // if (req.user.role === "applicant") {
+  //   filters.status = "active";
+  // }
 
   const job = await searchJobService(filters);
 
