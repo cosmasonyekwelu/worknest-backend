@@ -13,7 +13,7 @@ export const rateLimiter = rateLimit({
     }`;
   },
   legacyHeaders: false, //disable X-RateLimit headers
-  trustProxy: true, //trust the X-Forwarded-For header
+  // trustProxy: true, //trust the X-Forwarded-For header
 });
 
 //rate limit for refresh token endpoint
@@ -29,5 +29,5 @@ export const refreshTokenLimit = rateLimit({
     }`;
   },
   legacyHeaders: false, //disable X-RateLimit headers
-  trustProxy: true, //trust the X-Forwarded-For header
+  // trustProxy: true, //trust the X-Forwarded-For header
 });
