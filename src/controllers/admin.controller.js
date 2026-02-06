@@ -1,6 +1,6 @@
 import tryCatchFn from "../lib/tryCatchFn.js";
 import responseHandler from "../lib/responseHandler.js";
-import { createSendToken } from "../lib/token.js";
+import { createAdminSendToken } from "../lib/token.js";
 import adminService from "../services/admin.service.js";
 import userService from "../services/user.service.js";
 import authService from "../services/auth.service.js";
@@ -10,7 +10,7 @@ const { successResponse } = responseHandler;
 export const adminLogin = tryCatchFn(async (req, res, next) => {
   const user = await adminService.adminLogin(req, next);
   if (!user) return;
-  const { accessToken, refreshToken, cookieOptions } = createSendToken(user);
+  const { accessToken, refreshToken, cookieOptions } = createAdminSendToken(user);
   res.cookie("adminRefreshToken", refreshToken, cookieOptions);
   return successResponse(res, { accessToken }, "Admin login successful", 200);
 });
@@ -45,7 +45,7 @@ export const refreshAdminAccessToken = tryCatchFn(async (req, res, next) => {
   const refreshToken = req.cookies?.adminRefreshToken;
   const user = await adminService.refreshAdminAccessToken(refreshToken, next);
   if (!user) return;
-  const tokenData = createSendToken(user);
+  const tokenData = createAdminSendToken(user);
   if (!tokenData) return;
   const { accessToken } = tokenData;
   return successResponse(
