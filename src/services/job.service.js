@@ -7,10 +7,18 @@ const searchJobService = async ({
   salaryMin,
   salaryMax,
   status,
+  isAdmin,
   page = 1,
   limit = 10,
 }) => {
   const filter = {};
+
+
+  if (isAdmin && status) {
+    filter.status = status;
+  } else if (!isAdmin) {
+    filter.status = "active";
+  }
 
   if (keyword) {
     filter.$or = [
@@ -22,7 +30,6 @@ const searchJobService = async ({
     ];
   }
 
-  if (status) filter.status = status;
   if (jobType) filter.jobType = jobType;
   if (category) filter.category = category;
 
@@ -34,14 +41,17 @@ const searchJobService = async ({
     filter["salaryRange.max"] = { $lte: Number(salaryMax) };
   }
 
-  // console.log("FILTER USED:", filter);
 
   let sort = "-createdAt";
 
   const skip = (Number(page) - 1) * Number(limit);
 
   const totalJobs = await Jobs.countDocuments(filter);
-  const jobs = await Jobs.find(filter).sort(sort).skip(skip).limit(limit);
+  const jobs = await Jobs.find(filter)
+    .sort(sort)
+    .skip(skip)
+    .limit(limit)
+    .lean();
 
   return {
     status: "success",

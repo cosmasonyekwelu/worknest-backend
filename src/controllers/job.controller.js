@@ -93,11 +93,12 @@ const getJobs = tryCatchFn(async (req, res) => {
     salaryRange,
     page: Number(page) || 1,
     limit: safeLimit,
+    isAdmin: req.user?.role === "admin",
   };
 
-  // if (req.user.role === "applicant") {
-  //   filters.status = "active";
-  // }
+  if (req.user?.role === "admin" && status) {
+    filters.status = status;
+  }
 
   const job = await searchJobService(filters);
 
@@ -131,7 +132,6 @@ const updateJob = tryCatchFn(async (req, res) => {
     .status(200)
     .json({ status: "success", message: "Job updated successfully" });
 });
-
 
 const deleteJob = tryCatchFn(async (req, res) => {
   const job = await Jobs.findByIdAndDelete(req.params.id);
