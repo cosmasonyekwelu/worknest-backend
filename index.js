@@ -8,12 +8,19 @@ import cookieParser from "cookie-parser";
 import { helmetOptions, compressionOptions } from "./src/lib/options.js";
 import logger from "./src/config/logger.js";
 import { gracefulShutdown } from "./src/config/db.server.js";
-import { catchNotFound, globalErrorHandler } from "./src/middleware/errorHandler.js";
+import {
+  catchNotFound,
+  globalErrorHandler,
+} from "./src/middleware/errorHandler.js";
 
 dotenv.config();
 
 // api routes
 import userRoutes from "./src/routes/userRoutes.js";
+import adminRoutes from "./src/routes/adminRoutes.js";
+import jobRoutes from "./src/routes/jobRoutes.js";
+import applicationRoutes from "./src/routes/applicationRoutes.js";
+
 const app = express();
 app.set("trust proxy", 1);
 
@@ -26,7 +33,7 @@ app.use(
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     optionsSuccessStatus: 200,
     allowedHeaders: ["Content-Type", "Authorization"],
-  })
+  }),
 );
 if (process.env.NODE_ENV === "development") {
   app.use(morgan("dev"));
@@ -55,19 +62,21 @@ app.get("/", (req, res) => {
   });
 });
 
+// TEST ROUTE
+
 // assemble routes
-app.use("/api/v1/auth", userRoutes)
+app.use("/api/v1/auth", userRoutes);
+app.use("/api/v1/admin", adminRoutes);
+app.use("/api/v1/jobs", jobRoutes);
+app.use("/api/v1/applications", applicationRoutes);
 
 //handle route errors
-app.use((req, res, next) => {
-  next(catchNotFound());
-});
+app.use(catchNotFound)
 
 
 //global error handler
-app.use((req, res, next) => {
-next(globalErrorHandler());
-});
+app.use(globalErrorHandler)
+
 const PORT = process.env.PORT || 5000;
 
 // Start the server
@@ -76,7 +85,7 @@ const startServer = async () => {
   try {
     const server = app.listen(PORT, "0.0.0.0", () => {
       logger.info(
-        `\n✅ Server running in ${process.env.NODE_ENV} mode on port ${PORT}`
+        `\n✅ Server running in ${process.env.NODE_ENV} mode on port ${PORT}`,
       );
       logger.info(`🌐 http://localhost:${PORT}\n`);
     });

@@ -33,6 +33,12 @@ const userSchema = new Schema(
     avatarId: {
       type: String,
     },
+    bio: {
+      type: String,
+      trim: true,
+      maxLength: [1000, "Bio cannot exceed 1000 characters"],
+      default: "",
+    },
     role: {
       type: String,
       enum: ["applicant", "admin"], //predefined options that must be selected
@@ -61,7 +67,15 @@ const userSchema = new Schema(
     isCompletedOnboard: {
       type: Boolean,
       default: false,
+    },
+
+    savedJobs: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Jobs",
       },
+    ],
+    
   },
   {
     timestamps: true,

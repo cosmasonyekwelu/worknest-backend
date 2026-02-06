@@ -1,9 +1,9 @@
 import User from "../models/user.js";
-import responseHandler from "../lib/responseHandler.js";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import mailService from "./email.service.js"
 import jwt from "jsonwebtoken";
+import responseHandler from "../lib/responseHandler.js";
 
 const { errorResponse, notFoundResponse } = responseHandler;
 
@@ -50,6 +50,17 @@ const authService = {
     if (!user) {
       return next(errorResponse("Account not found", 401));
     }
+
+    // Check if user is an admin - admins must use the admin login route
+    if (user.role === "admin") {
+      return next(
+        errorResponse(
+          "Admins must use the admin login route. Please visit /admin/login.",
+          403
+        )
+      );
+    }
+
     // handle password comparison
     const isPasswordValid = await bcrypt.compare(
       req.body.password,
@@ -146,6 +157,16 @@ const authService = {
     });
     return user;
   },
+    logout: async (req, res, next) => {
+      res.cookie("userRefreshToken", "", {
+        maxAge: 0,
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+        path: "/api/v1/auth/refresh-token",
+      });
+      return true;
+    },
 };
 
 export default authService;
