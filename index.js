@@ -17,6 +17,8 @@ import {
 
 dotenv.config();
 
+// api routes
+import userRoutes from "./src/routes/userRoutes.js";
 const app = express();
 app.set("trust proxy", 1);
 
@@ -41,7 +43,7 @@ console.log("pp", process.env.MONGO_URI);
 app.use(cookieParser());
 app.use(express.json({ limit: "25mb" }));
 app.use(express.urlencoded({ limit: "25mb", extended: true }));
-app.disabled("x-powered-by");
+app.disable("x-powered-by");
 app.use(helmet(helmetOptions));
 app.use(compression(compressionOptions));
 
@@ -59,7 +61,8 @@ app.get("/", (req, res) => {
   });
 });
 
-app.use("/api/jobs", jobRoutes);
+// assemble routes
+app.use("/api/v1/auth", userRoutes);
 
 //handle route errors
 // app.use((req, res, next) => {
@@ -70,8 +73,12 @@ app.use("/api/jobs", jobRoutes);
 // app.use((req, res, next) => {
 //   next(globalErrorHandler());
 // });
-app.use(catchNotFound);
-app.use(globalErrorHandler);
+app.use((req, res, next) => {
+  catchNotFound(req, res, next);
+});
+app.use((err, req, res, next) => {
+  globalErrorHandler(err, req, res, next);
+});
 const PORT = process.env.PORT || 5000;
 
 // Start the server

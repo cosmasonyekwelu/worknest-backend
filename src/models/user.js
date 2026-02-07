@@ -6,7 +6,7 @@ const userSchema = new Schema(
       type: String,
       required: [true, "Full name is required"],
       trim: true,
-      maxlength: [50, "Full name cannot be more than 50 characters"],
+      maxLength: [50, "Full name cannot be more than 50 characters"],
     },
     email: {
       type: String,
@@ -38,8 +38,8 @@ const userSchema = new Schema(
 
     role: {
       type: String,
-      enum: ["user", "admin, superadmin"], //predefined options that must be selected
-      default: "user",
+      enum: ["applicant", "admin"], //predefined options that must be selected
+      default: "applicant",
     },
     isVerified: {
       type: Boolean,
@@ -64,10 +64,7 @@ const userSchema = new Schema(
     isCompletedOnboard: {
       type: Boolean,
       default: false,
-      select: function () {
-        return this.role === "user";
-      }, //show field only if the user role is "user"
-    },
+      },
   },
   {
     timestamps: true,
