@@ -17,7 +17,16 @@ export const forgotPassword = tryCatchFn(async (req, res, next) => {
 
 export const uploadAvatar = tryCatchFn(async (req, res, next) => {
   const { id: userId } = req.user;
-  const user = await userService.uploadAvatar(userId, req.body.avatar, next);
+  let avatarPayload = null;
+  if (req.file) {
+    const file = req.file;
+    const dataUri = `data:${file.mimetype};base64,${file.buffer.toString("base64")}`;
+    avatarPayload = dataUri;
+  } else if (req.body && req.body.avatar) {
+    avatarPayload = req.body.avatar;
+  }
+
+  const user = await userService.uploadAvatar(userId, avatarPayload, next);
   return successResponse(res, user, "Image uploaded successfully", 200);
 });
 
