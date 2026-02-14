@@ -9,35 +9,63 @@ import {
   getApplicationStats as getApplicationStatsService
 } from "../services/application.service.js";
 
+import { uploadToCloudinary } from "../lib/cloudinary.js"; // Import cloudinary upload function
+
 // Apply for a job
 export const applyForJob = tryCatchFn(async (req, res) => {
   const { jobId } = req.params;
   const applicantId = req.user._id;
 
-  const {
-    resumeUrl,
-    portfolioUrl,
-    linkedinUrl,
-    answers,
-  } = req.body;
-
-  // ✅ Fix: Removed duplicate validation - let service handle it
-  // Only keep basic required field check
-  if (!resumeUrl || !resumeUrl.trim()) {
+  // Check if file is present
+  if (!req.file) {
     return res.status(400).json({
       status: "error",
-      message: "Resume URL is required",
+      message: "Resume file is required",
     });
   }
 
+  // Convert buffer to base64 data URI for Cloudinary
+  const fileBase64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+
+  // Upload to Cloudinary
+  let uploadResult;
+  try {
+    uploadResult = await uploadToCloudinary(fileBase64, {
+      folder: 'Worknest/resumes', // Optional subfolder for resumes
+      public_id: `${applicantId}_${Date.now()}`, // Optional custom public_id
+    });
+  } catch (error) {
+    console.error('Cloudinary upload error:', error);
+    return res.status(500).json({
+      status: "error",
+      message: "Failed to upload resume. Please try again.",
+    });
+  }
+
+  const { portfolioUrl, linkedinUrl, answers } = req.body;
+
+  // Parse answers if sent as JSON string
+  let parsedAnswers = answers;
+  if (typeof answers === 'string') {
+    try {
+      parsedAnswers = JSON.parse(answers);
+    } catch (e) {
+      return res.status(400).json({
+        status: "error",
+        message: "Invalid answers format. Must be a valid JSON array.",
+      });
+    }
+  }
+
+  // Create application with Cloudinary URL
   const application = await createApplication(
     applicantId,
     jobId,
     {
-      resumeUrl: resumeUrl.trim(),
+      resumeUrl: uploadResult.url, // Use the secure URL from Cloudinary
       portfolioUrl: portfolioUrl?.trim(),
       linkedinUrl: linkedinUrl?.trim(),
-      answers,
+      answers: parsedAnswers,
     }
   );
 
@@ -50,6 +78,7 @@ export const applyForJob = tryCatchFn(async (req, res) => {
     data: populatedApplication,
   });
 });
+
 
 // Get user's applications
 export const getMyApplications = tryCatchFn(async (req, res) => {
