@@ -71,7 +71,7 @@ export const applyForJob = tryCatchFn(async (req, res) => {
       portfolioUrl: portfolioUrl?.trim(),
       linkedinUrl: linkedinUrl?.trim(),
       answers: parsedAnswers,
-      personalInfo: parsedPersonalInfo, // pass snapshot
+      personalInfo: parsedPersonalInfo, // pass snapshot of personal info
     }
   );
 
@@ -88,7 +88,7 @@ export const getMyApplications = tryCatchFn(async (req, res) => {
   const applicantId = req.user._id;
   const { page = 1, limit = 10 } = req.query;
 
-  // ✅ Fix: Add limit cap and validation
+  //  Fix: Add limit cap and validation
   const pageNum = Math.max(1, Number(page));
   const limitNum = Math.min(Math.max(1, Number(limit)), 100);
 
@@ -136,7 +136,7 @@ export const getAllApplications = tryCatchFn(async (req, res) => {
     limit = 10,
   } = req.query;
 
-  // ✅ Fix: Add limit cap and validation
+  //  Fix: Add limit cap and validation
   const pageNum = Math.max(1, Number(page));
   const limitNum = Math.min(Math.max(1, Number(limit)), 100);
 
