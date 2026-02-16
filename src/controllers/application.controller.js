@@ -16,60 +16,65 @@ export const applyForJob = tryCatchFn(async (req, res) => {
   const { jobId } = req.params;
   const applicantId = req.user._id;
 
-  // Check if file is present
   if (!req.file) {
-    return res.status(400).json({
-      status: "error",
-      message: "Resume file is required",
-    });
+    return res.status(400).json({ status: "error", message: "Resume file is required" });
   }
 
-  // Convert buffer to base64 data URI for Cloudinary
   const fileBase64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
 
-  // Upload to Cloudinary
   let uploadResult;
   try {
     uploadResult = await uploadToCloudinary(fileBase64, {
-      folder: 'Worknest/resumes', // Optional subfolder for resumes
-      public_id: `${applicantId}_${Date.now()}`, // Optional custom public_id
+      folder: 'Worknest/resumes',
+      public_id: `${applicantId}_${Date.now()}`,
     });
   } catch (error) {
     console.error('Cloudinary upload error:', error);
-    return res.status(500).json({
-      status: "error",
-      message: "Failed to upload resume. Please try again.",
-    });
+    return res.status(500).json({ status: "error", message: "Failed to upload resume. Please try again." });
   }
 
-  const { portfolioUrl, linkedinUrl, answers } = req.body;
+  const { portfolioUrl, linkedinUrl, answers, personalInfo } = req.body;
 
-  // Parse answers if sent as JSON string
+  // Parse answers
   let parsedAnswers = answers;
   if (typeof answers === 'string') {
     try {
       parsedAnswers = JSON.parse(answers);
     } catch (e) {
-      return res.status(400).json({
-        status: "error",
-        message: "Invalid answers format. Must be a valid JSON array.",
-      });
+      return res.status(400).json({ status: "error", message: "Invalid answers format. Must be a valid JSON array." });
     }
   }
 
-  // Create application with Cloudinary URL
+  // Parse and validate personalInfo
+  if (!personalInfo) {
+    return res.status(400).json({ status: "error", message: "Personal information is required" });
+  }
+  let parsedPersonalInfo;
+  try {
+    parsedPersonalInfo = JSON.parse(personalInfo);
+    // Basic required field check
+    const required = ['firstname', 'lastname', 'email'];
+    for (const field of required) {
+      if (!parsedPersonalInfo[field]?.trim()) {
+        throw new Error(`${field} is required`);
+      }
+    }
+  } catch (e) {
+    return res.status(400).json({ status: "error", message: "Invalid personalInfo format or missing required fields" });
+  }
+
   const application = await createApplication(
     applicantId,
     jobId,
     {
-      resumeUrl: uploadResult.url, // Use the secure URL from Cloudinary
+      resumeUrl: uploadResult.url,
       portfolioUrl: portfolioUrl?.trim(),
       linkedinUrl: linkedinUrl?.trim(),
       answers: parsedAnswers,
+      personalInfo: parsedPersonalInfo, // pass snapshot
     }
   );
 
-  // Populate job details for response
   const populatedApplication = await application.populate("job", "title companyName location");
 
   return res.status(201).json({
@@ -78,8 +83,6 @@ export const applyForJob = tryCatchFn(async (req, res) => {
     data: populatedApplication,
   });
 });
-
-
 // Get user's applications
 export const getMyApplications = tryCatchFn(async (req, res) => {
   const applicantId = req.user._id;

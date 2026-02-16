@@ -2,37 +2,53 @@ import Application from "../models/application.js";
 import Jobs from "../models/jobs.js";
 import User from "../models/user.js";
 
+// ------------------------------------------------------------
 // Create new application
+// ------------------------------------------------------------
 export const createApplication = async (applicantId, jobId, applicationData) => {
   try {
-    // Check if job exists
+    // 1. Check if job exists
     const job = await Jobs.findById(jobId);
     if (!job) {
       throw new Error("Job not found");
     }
 
-    // Validate application questions if job has them
-    if (job.applicationQuestions && job.applicationQuestions.length > 0) {
+    // 2. Validate application questions if job has them
+    if (job.applicationQuestions?.length) {
       if (!applicationData.answers || applicationData.answers.length !== job.applicationQuestions.length) {
         throw new Error("Please answer all application questions");
       }
-      
-      // ✅ Fix: Validate that answers match questions by index
+
       for (let i = 0; i < job.applicationQuestions.length; i++) {
         const expectedQuestion = job.applicationQuestions[i];
         const providedAnswer = applicationData.answers[i];
-        
+
         if (!providedAnswer || providedAnswer.question !== expectedQuestion || !providedAnswer.answer.trim()) {
           throw new Error(`Invalid answer for question: "${expectedQuestion}"`);
         }
       }
     }
 
-    // ✅ Fix: Add initial status history entry
+    // 3. Validate and extract personalInfo (must be provided by frontend)
+    const { personalInfo, ...rest } = applicationData;
+    if (!personalInfo) {
+      throw new Error("Personal information is required");
+    }
+
+    // Basic required fields check (firstname, lastname, email)
+    const requiredFields = ['firstname', 'lastname', 'email'];
+    for (const field of requiredFields) {
+      if (!personalInfo[field]?.trim()) {
+        throw new Error(`${field} is required in personalInfo`);
+      }
+    }
+
+    // 4. Create application with personalInfo snapshot
     const application = await Application.create({
       applicant: applicantId,
       job: jobId,
-      ...applicationData,
+      ...rest,                       // resumeUrl, portfolioUrl, linkedinUrl, answers
+      personalInfo,                   // store snapshot
       statusHistory: [{
         status: 'submitted',
         changedAt: new Date(),
@@ -43,7 +59,7 @@ export const createApplication = async (applicantId, jobId, applicationData) => 
 
     return application;
   } catch (error) {
-    // ✅ Fix: Handle duplicate key error (race condition)
+    // Handle duplicate key error (applicant already applied for this job)
     if (error.code === 11000) {
       throw new Error("You have already applied for this job");
     }
@@ -51,15 +67,16 @@ export const createApplication = async (applicantId, jobId, applicationData) => 
   }
 };
 
-// Get applicant's own applications
+// ------------------------------------------------------------
+// Get applicant's own applications (paginated)
+// ------------------------------------------------------------
 export const getUserApplications = async (applicantId, page = 1, limit = 10) => {
-  // ✅ Fix: Add limit cap for safety
   const safeLimit = Math.min(Math.max(1, limit), 100);
   const skip = (page - 1) * safeLimit;
 
   const [applications, total] = await Promise.all([
     Application.find({ applicant: applicantId })
-      .populate("job", "title companyName location jobType createdAt")
+      .populate("job", "title companyName location jobType createdAt")   // keep job details
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(safeLimit)
@@ -68,42 +85,42 @@ export const getUserApplications = async (applicantId, page = 1, limit = 10) => 
   ]);
 
   return {
-    data: applications,
+    data: applications,   // each doc includes personalInfo
     total,
     page,
     totalPages: Math.ceil(total / safeLimit),
   };
 };
 
+// ------------------------------------------------------------
 // Get single application with authorization
+// ------------------------------------------------------------
 export const getApplicationById = async (applicationId, userId, role) => {
-  // ✅ Fix: Handle internal note based on role
   let query = Application.findById(applicationId)
-    .populate("job", "title companyName location jobType requirements")
-    .populate("applicant", "name email profile");
+    .populate("job", "title companyName location jobType requirements");   // no applicant populate
 
-  // ✅ Fix: Use select('+internalNote') for admin
   if (role === "admin") {
     query = query.select('+internalNote');
   }
 
-  const application = await query;
+  const application = await query.lean();
 
   if (!application) {
     throw new Error("Application not found");
   }
 
-  // Authorization check
-  if (role === "applicant" && application.applicant._id.toString() !== userId.toString()) {
+  // Authorization: applicant can only view their own applications
+  if (role === "applicant" && application.applicant.toString() !== userId.toString()) {
     throw new Error("Unauthorized to view this application");
   }
 
-  return application;
+  return application;   // contains personalInfo
 };
 
-// Admin: Get all applications with filters
+// ------------------------------------------------------------
+// Admin: Get all applications with filters (paginated)
+// ------------------------------------------------------------
 export const getAllApplications = async (filters = {}, page = 1, limit = 10) => {
-  // ✅ Fix: Add limit cap for safety
   const safeLimit = Math.min(Math.max(1, limit), 100);
   const {
     status,
@@ -116,48 +133,34 @@ export const getAllApplications = async (filters = {}, page = 1, limit = 10) => 
 
   const query = {};
 
-  // Filter by status
-  if (status) {
-    query.status = status;
-  }
+  if (status) query.status = status;
+  if (jobId) query.job = jobId;
+  if (applicantId) query.applicant = applicantId;
 
-  // Filter by job
-  if (jobId) {
-    query.job = jobId;
-  }
-
-  // Filter by applicant
-  if (applicantId) {
-    query.applicant = applicantId;
-  }
-
-  // Filter by date range
   if (startDate || endDate) {
     query.createdAt = {};
     if (startDate) query.createdAt.$gte = new Date(startDate);
     if (endDate) query.createdAt.$lte = new Date(endDate);
   }
 
-  // Keyword search (in applicant name/email or job title)
+  // Keyword search (in applicant fullname/email or job title)
   if (keyword) {
     const trimmedKeyword = keyword.trim();
     if (trimmedKeyword) {
-      // First get user IDs matching the keyword
+      // Find users matching fullname or email
       const users = await User.find({
         $or: [
-          { name: { $regex: trimmedKeyword, $options: "i" } },
+          { fullname: { $regex: trimmedKeyword, $options: "i" } },   //  changed from 'name' to 'fullname'
           { email: { $regex: trimmedKeyword, $options: "i" } },
         ],
       }).select("_id");
+      const userIds = users.map(u => u._id);
 
-      const userIds = users.map(user => user._id);
-
-      // Get job IDs matching the keyword
+      // Find jobs matching title
       const jobs = await Jobs.find({
         title: { $regex: trimmedKeyword, $options: "i" },
       }).select("_id");
-
-      const jobIds = jobs.map(job => job._id);
+      const jobIds = jobs.map(j => j._id);
 
       query.$or = [
         { applicant: { $in: userIds } },
@@ -170,9 +173,8 @@ export const getAllApplications = async (filters = {}, page = 1, limit = 10) => 
 
   const [applications, total] = await Promise.all([
     Application.find(query)
-      .select('+internalNote') // ✅ Fix: Include internal note for admin
-      .populate("applicant", "name email profile")
-      .populate("job", "title companyName location status")
+      .select('+internalNote')
+      .populate("job", "title companyName location status")   // no applicant populate
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(safeLimit)
@@ -181,14 +183,16 @@ export const getAllApplications = async (filters = {}, page = 1, limit = 10) => 
   ]);
 
   return {
-    data: applications,
+    data: applications,   // each doc contains personalInfo
     total,
     page,
     totalPages: Math.ceil(total / safeLimit),
   };
 };
 
+// ------------------------------------------------------------
 // Update application status (admin only)
+// ------------------------------------------------------------
 export const updateApplicationStatus = async (applicationId, status, adminId, note) => {
   const validStatuses = [
     "submitted",
@@ -209,12 +213,10 @@ export const updateApplicationStatus = async (applicationId, status, adminId, no
     throw new Error("Application not found");
   }
 
-  // Don't update if status is the same
   if (application.status === status) {
     throw new Error(`Application is already in "${status}" status`);
   }
 
-  // Add to status history
   application.statusHistory.push({
     status,
     changedAt: new Date(),
@@ -223,16 +225,16 @@ export const updateApplicationStatus = async (applicationId, status, adminId, no
   });
 
   application.status = status;
-  // ✅ Fix: Removed manual updatedAt setting (timestamps handle this)
-
   await application.save();
+
   return application;
 };
 
+// ------------------------------------------------------------
 // Update internal note (admin only)
+// ------------------------------------------------------------
 export const updateInternalNote = async (applicationId, note) => {
   const trimmedNote = note?.trim();
-  
   if (!trimmedNote) {
     throw new Error("Note cannot be empty");
   }
@@ -241,7 +243,7 @@ export const updateInternalNote = async (applicationId, note) => {
     applicationId,
     { internalNote: trimmedNote },
     { new: true, runValidators: true }
-  ).select('+internalNote'); // ✅ Fix: Include internal note in response
+  ).select('+internalNote');
 
   if (!application) {
     throw new Error("Application not found");
@@ -250,7 +252,9 @@ export const updateInternalNote = async (applicationId, note) => {
   return application;
 };
 
-// Get application statistics
+// ------------------------------------------------------------
+// Get application statistics (optional job filter)
+// ------------------------------------------------------------
 export const getApplicationStats = async (jobId = null) => {
   const matchStage = {};
   if (jobId) {
@@ -274,7 +278,6 @@ export const getApplicationStats = async (jobId = null) => {
     },
   ]);
 
-  // Format to include all statuses with 0 count
   const allStatuses = [
     "submitted",
     "in_review",
@@ -303,8 +306,9 @@ export const getApplicationStats = async (jobId = null) => {
   };
 };
 
-// ✅ Fix: Removed default export since we're using named exports
-// You can still export all functions as a single object if needed
+// ------------------------------------------------------------
+// Optional default export for easier imports in controllers
+// ------------------------------------------------------------
 export default {
   createApplication,
   getUserApplications,
