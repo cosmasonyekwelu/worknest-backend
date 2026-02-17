@@ -24,7 +24,11 @@ import applicationRoutes from "./src/routes/applicationRoutes.js";
 const app = express();
 app.set("trust proxy", 1);
 
-const allowOrigins = [process.env.CLIENT_URL];
+// const allowOrigins = [process.env.CLIENT_URL];
+
+const allowOrigins = process.env.CLIENT_URL
+  ? process.env.CLIENT_URL.split(",").map((origin) => origin.trim())
+  : [];
 
 app.use(
   cors({
@@ -71,11 +75,10 @@ app.use("/api/v1/jobs", jobRoutes);
 app.use("/api/v1/applications", applicationRoutes);
 
 //handle route errors
-app.use(catchNotFound)
-
+app.use(catchNotFound);
 
 //global error handler
-app.use(globalErrorHandler)
+app.use(globalErrorHandler);
 
 const PORT = process.env.PORT || 5000;
 
