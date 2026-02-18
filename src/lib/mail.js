@@ -6,7 +6,7 @@ dotenv.config();
 const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_HOST,
   port: parseInt(process.env.EMAIL_PORT, 10),
-  secure: false,
+  secure: true,
   requireTLS: true, //upgrade to a secure conn once connected
   auth: {
     user: process.env.EMAIL_USER,
@@ -14,7 +14,7 @@ const transporter = nodemailer.createTransport({
   },
   tls: {
     //reject unauthorized cert in production, for security
-    rejectUnauthorized: process.env.NODE_ENV === "production",
+    rejectUnauthorized: false,
   },
 });
 
@@ -36,7 +36,7 @@ verifyEmailConnection().catch(console.error);
 
 export const sendEmail = async ({ to, subject, html }) => {
   const mailOptions = {
-    from: "Worknest <worknest@gmail.com>",
+    from: "Worknest <worknestnig@gmail.com>",
     to,
     subject,
     html,

@@ -10,11 +10,7 @@ import passport from "passport";
 
 import { helmetOptions, compressionOptions } from "./src/lib/options.js";
 import logger from "./src/config/logger.js";
-import { connectDB, gracefulShutdown } from "./src/config/db.server.js";
-
-import userRoutes from "./src/routes/userRoutes.js";
-import jobRoutes from "./src/routes/JobRoutes.js";
-
+import { gracefulShutdown } from "./src/config/db.server.js";
 import {
   catchNotFound,
   globalErrorHandler,
@@ -43,7 +39,6 @@ app.use(
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
-    optionsSuccessStatus: 200,
   }),
 );
 

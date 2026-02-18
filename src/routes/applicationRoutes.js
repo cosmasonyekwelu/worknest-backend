@@ -1,28 +1,73 @@
 import express from "express";
-import { verifyAuth } from "../middlewares/authenticate.js";
-import upload from "../middlewares/upload.js";
-import * as controller from "../controllers/application.controller.js";
+import {
+  applyForJob,
+  getMyApplications,
+  getApplication,
+  getAllApplications,
+  updateApplicationStatus,
+  updateInternalNote,
+  getApplicationStats,
+} from "../controllers/application.controller.js";
+import { authorizedRoles, verifyAuth } from "../middleware/authenticate.js";
+
+import upload from "../middleware/upload.js"; // Import your custom upload middleware
 
 const router = express.Router();
 
-/**
- * Submit job application
- */
+// Applicant routes
 router.post(
-  "/",
+  "/:jobId/apply",
   verifyAuth,
-  upload.fields([{ name: "resume", maxCount: 1 }]),
-  controller.submitApplication
+  authorizedRoles("applicant"),
+  upload.single('resume'), // Use upload middleware
+  applyForJob
 );
 
-/**
- * Get current user's applications
- */
-router.get("/me", verifyAuth, controller.getMyApplications);
+// Get current user's applications
 
-/**
- * Get application by ID
- */
-router.get("/:id", verifyAuth, controller.getApplicationById);
+router.get(
+  "/me",
+  verifyAuth,
+  authorizedRoles("applicant"),
+  getMyApplications
+);
+
+// Application stats overview
+router.get(
+  "/stats/overview",
+  verifyAuth,
+  authorizedRoles("admin"),
+  getApplicationStats
+);
+
+// Get application by ID
+router.get(
+  "/:id",
+  verifyAuth,
+  authorizedRoles("applicant", "admin"),
+  getApplication
+);
+
+// Admin routes
+router.get(
+  "/",
+  verifyAuth,
+  authorizedRoles("admin"),
+  getAllApplications
+);
+
+router.patch(
+  "/:id/status",
+  verifyAuth,
+  authorizedRoles("admin"),
+  updateApplicationStatus
+);
+
+router.patch(
+  "/:id/note",
+  verifyAuth,
+  authorizedRoles("admin"),
+  updateInternalNote
+);
 
 export default router;

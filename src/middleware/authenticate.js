@@ -19,20 +19,22 @@ export const verifyAuth = tryCatchFn(async (req, res, next) => {
   if (!token) {
     return next(
       unauthorizedResponse(
-        "You are not logged in!, Please log in to gain access."
-      )
+        "You are not logged in!, Please log in to gain access.",
+      ),
     );
   }
   //verify the token
   const decoded = await promisify(jwt.verify)(
     token,
-    process.env.JWT_SECRET_KEY
+    process.env.JWT_SECRET_KEY,
   );
   //check if a user exists with our decoded id
   const currentUser = await User.findById(decoded.id);
   if (!currentUser) {
     return next(
-      unauthorizedResponse("The user belonging to this token no longer exists.")
+      unauthorizedResponse(
+        "The user belonging to this token no longer exists.",
+      ),
     );
   }
   //assign user to our request object
@@ -40,12 +42,42 @@ export const verifyAuth = tryCatchFn(async (req, res, next) => {
   next(); //pass to the next event
 });
 
+//optional auth - tries to authenticate but doesn't fail if no token
+export const optionalAuth = tryCatchFn(async (req, res, next) => {
+  let token;
+  if (
+    req.headers.authorization &&
+    req.headers.authorization.startsWith("Bearer")
+  ) {
+    token = req.headers.authorization.split(" ")[1];
+  }
+
+  if (token) {
+    try {
+      const decoded = await promisify(jwt.verify)(
+        token,
+        process.env.JWT_SECRET_KEY,
+      );
+      const currentUser = await User.findById(decoded.id);
+      if (currentUser) {
+        req.user = currentUser;
+      }
+    } catch (err) {
+      // Token is invalid or expired, but we don't fail - just continue without auth
+      req.user = null;
+    }
+  } else {
+    req.user = null;
+  }
+  next();
+});
+
 //role based auth
 export const authorizedRoles = (...roles) => {
   return (req, res, next) => {
     if (!roles.includes(req.user.role)) {
       return next(
-        forbiddenResponse("You do not have permission to perform this action")
+        forbiddenResponse("You do not have permission to perform this action"),
       );
     }
     next();
