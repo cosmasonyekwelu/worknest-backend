@@ -17,11 +17,13 @@ const userSchema = new Schema(
     },
     password: {
       type: String,
-      required: [true, "Password is required"],
+      required: function () {
+        return !this.provider;
+      },
       select: false,
     },
-    googleId: { String },
-    provider: "google",
+    googleId: { type: String },
+
     dateOfBirth: {
       type: Date,
     },
@@ -64,7 +66,7 @@ const userSchema = new Schema(
     isCompletedOnboard: {
       type: Boolean,
       default: false,
-      },
+    },
   },
   {
     timestamps: true,
@@ -72,4 +74,5 @@ const userSchema = new Schema(
 );
 
 const User = mongoose.models.User || model("User", userSchema);
+
 export default User;

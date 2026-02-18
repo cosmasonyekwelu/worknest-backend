@@ -5,25 +5,37 @@ import morgan from "morgan";
 import compression from "compression";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
+import session from "express-session";
+import passport from "passport";
+
 import { helmetOptions, compressionOptions } from "./src/lib/options.js";
 import logger from "./src/config/logger.js";
 import { connectDB, gracefulShutdown } from "./src/config/db.server.js";
+
+import userRoutes from "./src/routes/userRoutes.js";
 import jobRoutes from "./src/routes/JobRoutes.js";
-import { OAuth2Client } from "google-auth-library";
+
 import {
   catchNotFound,
   globalErrorHandler,
 } from "./src/middleware/errorHandler.js";
 
+// ✅ Load Passport Google Strategy (runs once)
+import googlePassportMiddleware from "./src/middleware/googleAuthMiddleware.js";
+import authRoutes from "./src/routes/auth.js";
+
 dotenv.config();
 
-// api routes
-import userRoutes from "./src/routes/userRoutes.js";
+// initialize google passport strategy after env is loaded
+googlePassportMiddleware();
+
 const app = express();
 app.set("trust proxy", 1);
 
+// ================================
+// ✅ CORS CONFIG
+// ================================
 const allowOrigins = [process.env.CLIENT_URL];
-const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 app.use(
   cors({
@@ -34,64 +46,97 @@ app.use(
     optionsSuccessStatus: 200,
   }),
 );
+
+// ================================
+// ✅ DEV LOGGER
+// ================================
 if (process.env.NODE_ENV === "development") {
   app.use(morgan("dev"));
 }
 
-console.log("pp", process.env.MONGO_URI);
-
+// ================================
+// ✅ CORE MIDDLEWARES
+// ================================
 app.use(cookieParser());
+
 app.use(express.json({ limit: "25mb" }));
 app.use(express.urlencoded({ limit: "25mb", extended: true }));
+
 app.disable("x-powered-by");
+
+// ================================
+// ✅ SECURITY + PERFORMANCE
+// ================================
 app.use(helmet(helmetOptions));
 app.use(compression(compressionOptions));
 
+// ================================
+// ✅ SESSION + PASSPORT
+// ================================
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET || "supersecret",
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: process.env.NODE_ENV === "production",
+      httpOnly: true,
+    },
+  }),
+);
+
+app.use(passport.initialize());
+app.use(passport.session());
+
+// ================================
+// ✅ REQUEST TIME MIDDLEWARE
+// ================================
 app.use((req, res, next) => {
   res.requestTime = new Date().toISOString();
   next();
 });
 
+// ================================
+// ✅ ROOT ROUTE
+// ================================
 app.get("/", (req, res) => {
   res.status(200).json({
     status: "success",
     message: "Welcome to Worknest Backend API",
     environment: process.env.NODE_ENV,
-    timestamp: req.requestTime,
+    timestamp: res.requestTime,
   });
 });
 
-// assemble routes
+// ================================
+// ✅ API ROUTES
+// ================================
 app.use("/api/v1/auth", userRoutes);
+app.use("/api/v1/jobs", jobRoutes);
+app.use("/auth", authRoutes);
 
-//handle route errors
-// app.use((req, res, next) => {
-//   next(catchNotFound());
-// });
+// ================================
+// ✅ ERROR HANDLING
+// ================================
+app.use(catchNotFound);
+app.use(globalErrorHandler);
 
-// //global error handler
-// app.use((req, res, next) => {
-//   next(globalErrorHandler());
-// });
-app.use((req, res, next) => {
-  catchNotFound(req, res, next);
-});
-app.use((err, req, res, next) => {
-  globalErrorHandler(err, req, res, next);
-});
+// ================================
+// ✅ SERVER START
+// ================================
 const PORT = process.env.PORT || 5000;
-
-// Start the server
 
 const startServer = async () => {
   try {
     await connectDB();
+
     const server = app.listen(PORT, "0.0.0.0", () => {
       logger.info(
         `\n✅ Server running in ${process.env.NODE_ENV} mode on port ${PORT}`,
       );
       logger.info(`🌐 http://localhost:${PORT}\n`);
     });
+
     // Handle unhandled promise rejections
     process.on("unhandledRejection", (reason) => {
       logger.error("❌ UNHANDLED REJECTION:", reason);
