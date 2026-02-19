@@ -30,6 +30,11 @@ const jobSchema = new Schema(
 
     companyLogo: {
       type: String,
+      default: "",
+    },
+
+    companyLogoId: {
+      type: String,
     },
 
     category: {

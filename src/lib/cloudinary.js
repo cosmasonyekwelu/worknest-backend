@@ -7,6 +7,10 @@ cloudinary.config({
   secure: true,
 });
 
+export const bufferToDataURI = (fileBuffer, mimeType) => {
+  return `data:${mimeType};base64,${fileBuffer.toString("base64")}`;
+};
+
 export const uploadToCloudinary = async (file, options = {}) => {
   try {
     const defaultOptions = {
@@ -35,9 +39,9 @@ export const uploadToCloudinary = async (file, options = {}) => {
 
     const uploadResponse = await cloudinary.uploader.upload(
       file,
-      defaultOptions
+      defaultOptions,
     );
-    console.log(uploadResponse)
+    console.log(uploadResponse);
     return {
       url: uploadResponse.secure_url,
       public_id: uploadResponse.public_id,

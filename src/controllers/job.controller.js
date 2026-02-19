@@ -1,7 +1,31 @@
-import { searchJobService } from "../services/job.service.js";
+import {
+  searchJobService,
+  uploadCompanyLogo,
+} from "../services/job.service.js";
+import { deleteFromCloudinary } from "../lib/cloudinary.js";
+import responseHandler from "../lib/responseHandler.js";
 import tryCatchFn from "../lib/tryCatchFn.js";
 import Jobs from "../models/jobs.js";
 import User from "../models/user.js";
+
+const { successResponse, errorResponse } = responseHandler;
+
+const uploadJobLogo = tryCatchFn(async (req, res, next) => {
+  console.log("UPLOAD LOGO HIT");
+  console.log("REQ.FILE:", req.file); // for debugging
+
+  const { jobId } = req.params;
+
+  const file = req.file;
+
+  if (!file) {
+    return next(errorResponse("No logo file uploaded", 400));
+  }
+
+  const job = await uploadCompanyLogo(jobId, file, next);
+
+  return successResponse(res, job, "Logo uploaded successfully", 200);
+});
 
 const createJobs = tryCatchFn(async (req, res) => {
   const {
@@ -134,11 +158,16 @@ const updateJob = tryCatchFn(async (req, res) => {
 });
 
 const deleteJob = tryCatchFn(async (req, res) => {
-  const job = await Jobs.findByIdAndDelete(req.params.id);
+  const job = await Jobs.findById(req.params.id);
 
   if (!job) {
     return res.status(404).json({ message: "Job not found" });
   }
+
+  if (job.companyLogoId) {
+    await deleteFromCloudinary(job.companyLogoId);
+  }
+  await job.deleteOne();
 
   return res
     .status(200)
@@ -223,4 +252,5 @@ export {
   saveJobs,
   unsaveJob,
   getSavedJobs,
+  uploadJobLogo,
 };

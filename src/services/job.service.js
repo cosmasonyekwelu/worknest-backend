@@ -1,4 +1,49 @@
 import Jobs from "../models/jobs.js";
+import {
+  uploadToCloudinary,
+  deleteFromCloudinary,
+  bufferToDataURI,
+} from "../lib/cloudinary.js";
+import responseHandler from "../lib/responseHandler.js";
+
+const { errorResponse, notFoundResponse } = responseHandler;
+
+const uploadCompanyLogo = async (jobId, file, next) => {
+  const job = await Jobs.findById(jobId);
+
+  if (!job) {
+    return next(notFoundResponse("Job not found"));
+  }
+
+  if (!file) {
+    return next(errorResponse("No file uploaded", 400));
+  }
+
+  if (job.companyLogoId) {
+    await deleteFromCloudinary(job.companyLogoId).catch(console.error);
+  }
+
+  const dataUri = bufferToDataURI(file.buffer, file.mimetype);
+
+  const { url, public_id } = await uploadToCloudinary(dataUri, {
+    transformation: [
+      {
+        width: 50,
+        height: 50,
+        crop: "fit",
+        fetch_format: "webp",
+        quality: "auto",
+      },
+    ],
+  });
+
+  job.companyLogo = url;
+  job.companyLogoId = public_id;
+
+  await job.save();
+
+  return job;
+};
 
 const searchJobService = async ({
   keyword,
@@ -12,7 +57,6 @@ const searchJobService = async ({
   limit = 10,
 }) => {
   const filter = {};
-
 
   if (isAdmin && status) {
     filter.status = status;
@@ -41,7 +85,6 @@ const searchJobService = async ({
     filter["salaryRange.max"] = { $lte: Number(salaryMax) };
   }
 
-
   let sort = "-createdAt";
 
   const skip = (Number(page) - 1) * Number(limit);
@@ -62,4 +105,4 @@ const searchJobService = async ({
   };
 };
 
-export { searchJobService };
+export { searchJobService, uploadCompanyLogo };
