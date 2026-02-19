@@ -19,6 +19,7 @@ dotenv.config();
 import userRoutes from "./src/routes/userRoutes.js";
 import adminRoutes from "./src/routes/adminRoutes.js";
 import jobRoutes from "./src/routes/jobRoutes.js";
+import applicationRoutes from "./src/routes/applicationRoutes.js";
 import contactRoutes from "./src/routes/contactRoute.js";
 
 const app = express();
@@ -68,12 +69,16 @@ app.get("/", (req, res) => {
 app.use("/api/v1/auth", userRoutes);
 app.use("/api/v1/admin", adminRoutes);
 app.use("/api/v1/jobs", jobRoutes);
+app.use("/api/v1/applications", applicationRoutes);
 app.use("/api/v1/contact", contactRoutes);
 
 //handle route errors
+app.use(catchNotFound)
+
 app.use(catchNotFound);
 
 //global error handler
+app.use(globalErrorHandler)
 app.use(globalErrorHandler);
 
 const PORT = process.env.PORT || 5000;
