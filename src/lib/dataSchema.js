@@ -154,3 +154,10 @@ export const validateUserSchema = z.object({
     country: z.string().optional(),
   bio: z.string().max(1000).optional(),
 });
+
+export const validateAdminProfile = z.object({
+  fullname: z.string().min(3, {
+    message: "Full name must be at least 3 characters long",
+  }),
+  email: z.string().email(),
+});
