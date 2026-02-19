@@ -153,7 +153,7 @@ const userService = {
     }
 
     // Allowed profile updates
-    const allowedUpdates = ["fullname", "dateOfBirth", "bio"];
+    const allowedUpdates = ["fullname", "dateOfBirth", "bio", "country"];
 
     for (const key of allowedUpdates) {
       if (userData[key] !== undefined && userData[key] !== null) {

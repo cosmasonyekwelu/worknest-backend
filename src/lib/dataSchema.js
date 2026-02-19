@@ -154,6 +154,7 @@ export const validateUserSchema = z.object({
     })
     .optional(),
   dateOfBirth: z.string().optional(),
+    country: z.string().optional(),
   bio: z.string().max(1000).optional(),
 });
 
