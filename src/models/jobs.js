@@ -28,12 +28,11 @@ const jobSchema = new Schema(
       type: String,
     },
 
-    companyLogo: {
+    avatar: {
       type: String,
       default: "",
     },
-
-    companyLogoId: {
+    avatarId: {
       type: String,
     },
 

@@ -1,48 +1,37 @@
 import Jobs from "../models/jobs.js";
-import {
-  uploadToCloudinary,
-  deleteFromCloudinary,
-  bufferToDataURI,
-} from "../lib/cloudinary.js";
+import { uploadToCloudinary, deleteFromCloudinary } from "../lib/cloudinary.js";
 import responseHandler from "../lib/responseHandler.js";
 
 const { errorResponse, notFoundResponse } = responseHandler;
 
-const uploadCompanyLogo = async (jobId, file, next) => {
-  const job = await Jobs.findById(jobId);
+const uploadJobAvatar = async (jobId, avatar, next) => {
+  try {
+    const job = await Jobs.findById(jobId);
+    if (!job) return next(notFoundResponse("Job not found"));
 
-  if (!job) {
-    return next(notFoundResponse("Job not found"));
+    if (!avatar) {
+      throw new Error("No avatar provided");
+    }
+    if (job.avatarId) {
+      await deleteFromCloudinary(job.avatarId).catch(console.error);
+    }
+
+    const { url, public_id } = await uploadToCloudinary(avatar, {
+      folder: "Worknest/job-avatars",
+      width: 200,
+      height: 200,
+      crop: "fit",
+      format: "webp",
+    });
+
+    job.avatar = url || job.avatar;
+    job.avatarId = public_id || job.avatarId;
+
+    await job.save();
+    return job;
+  } catch (err) {
+    return next(errorResponse(err.message, 500));
   }
-
-  if (!file) {
-    return next(errorResponse("No file uploaded", 400));
-  }
-
-  if (job.companyLogoId) {
-    await deleteFromCloudinary(job.companyLogoId).catch(console.error);
-  }
-
-  const dataUri = bufferToDataURI(file.buffer, file.mimetype);
-
-  const { url, public_id } = await uploadToCloudinary(dataUri, {
-    transformation: [
-      {
-        width: 50,
-        height: 50,
-        crop: "fit",
-        fetch_format: "webp",
-        quality: "auto",
-      },
-    ],
-  });
-
-  job.companyLogo = url;
-  job.companyLogoId = public_id;
-
-  await job.save();
-
-  return job;
 };
 
 const searchJobService = async ({
@@ -105,4 +94,4 @@ const searchJobService = async ({
   };
 };
 
-export { searchJobService, uploadCompanyLogo };
+export { searchJobService, uploadJobAvatar };

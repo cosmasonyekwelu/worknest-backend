@@ -1,30 +1,25 @@
-import {
-  searchJobService,
-  uploadCompanyLogo,
-} from "../services/job.service.js";
-import { deleteFromCloudinary } from "../lib/cloudinary.js";
+import { searchJobService, uploadJobAvatar } from "../services/job.service.js";
+import { deleteFromCloudinary, uploadToCloudinary } from "../lib/cloudinary.js";
 import responseHandler from "../lib/responseHandler.js";
 import tryCatchFn from "../lib/tryCatchFn.js";
 import Jobs from "../models/jobs.js";
 import User from "../models/user.js";
 
-const { successResponse, errorResponse } = responseHandler;
+const { successResponse } = responseHandler;
 
-const uploadJobLogo = tryCatchFn(async (req, res, next) => {
-  console.log("UPLOAD LOGO HIT");
-  console.log("REQ.FILE:", req.file); // for debugging
+export const uploadJobAvatarController = tryCatchFn(async (req, res) => {
+  console.log("HIT CONTROLLER"); 
 
   const { jobId } = req.params;
+  const { avatar } = req.body;
 
-  const file = req.file;
+  const updatedJob = await uploadJobAvatar(jobId, avatar, next);
 
-  if (!file) {
-    return next(errorResponse("No logo file uploaded", 400));
-  }
-
-  const job = await uploadCompanyLogo(jobId, file, next);
-
-  return successResponse(res, job, "Logo uploaded successfully", 200);
+  return res.status(200).json({
+    status: "success",
+    message: "Job avatar uploaded successfully",
+    data: updatedJob,
+  });
 });
 
 const createJobs = tryCatchFn(async (req, res) => {
@@ -41,7 +36,7 @@ const createJobs = tryCatchFn(async (req, res) => {
     benefits,
     companyName,
     companyWebsite,
-    companyLogo,
+    avatar,
     applicationQuestions,
     status,
   } = req.body;
@@ -63,6 +58,21 @@ const createJobs = tryCatchFn(async (req, res) => {
     });
   }
 
+  let avatarUrl = "";
+  let avatarId = "";
+
+  if (avatar) {
+    const uploaded = await uploadToCloudinary(avatar, {
+      folder: "Worknest/job-avatars",
+      width: 50,
+      height: 50,
+      crop: "fit",
+      format: "webp",
+    });
+    avatarUrl = uploaded.url;
+    avatarId = uploaded.public_id;
+  }
+
   const job = await Jobs.create({
     title,
     location,
@@ -76,7 +86,8 @@ const createJobs = tryCatchFn(async (req, res) => {
     benefits,
     companyName,
     companyWebsite,
-    companyLogo,
+    avatar: avatarUrl,
+    avatarId,
     applicationQuestions,
     status,
   });
@@ -252,5 +263,4 @@ export {
   saveJobs,
   unsaveJob,
   getSavedJobs,
-  uploadJobLogo,
 };

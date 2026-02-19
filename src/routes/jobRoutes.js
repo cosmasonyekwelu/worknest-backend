@@ -9,7 +9,7 @@ import {
   saveJobs,
   unsaveJob,
   getSavedJobs,
-  uploadJobLogo,
+  uploadJobAvatarController,
 } from "../controllers/job.controller.js";
 import {
   authorizedRoles,
@@ -17,14 +17,7 @@ import {
   optionalAuth,
 } from "../middleware/authenticate.js";
 
-import uploadImage from "../middleware/multer.js";
-
 const router = express.Router();
-
-router.use((req, res, next) => {
-  console.log("Incoming request:", req.method, req.url);
-  next();
-});
 
 router.post("/create", verifyAuth, authorizedRoles("admin"), createJobs);
 router.patch("/:id/update", verifyAuth, authorizedRoles("admin"), updateJob);
@@ -40,22 +33,10 @@ router.post("/:id/save", verifyAuth, authorizedRoles("applicant"), saveJobs);
 router.delete("/:id/save", verifyAuth, authorizedRoles("applicant"), unsaveJob);
 
 router.patch(
-  "/:jobId/logo",
+  "/:jobId/upload-avatar",
   verifyAuth,
   authorizedRoles("admin"),
-  uploadImage.single("logo"),
-  uploadJobLogo,
+  uploadJobAvatarController,
 );
-
-router.use((err, req, res, next) => {
-  if (err instanceof multer.MulterError) {
-    return res.status(400).json({ status: "error", message: err.message });
-  } else if (err) {
-    return res
-      .status(500)
-      .json({ status: "error", message: err.message || err });
-  }
-  next();
-});
 
 export default router;
