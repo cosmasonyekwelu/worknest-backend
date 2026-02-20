@@ -10,19 +10,28 @@ import passport from "passport";
 
 import { helmetOptions, compressionOptions } from "./src/lib/options.js";
 import logger from "./src/config/logger.js";
-import { gracefulShutdown } from "./src/config/db.server.js";
+
+import { connectDB, gracefulShutdown } from "./src/config/db.server.js";
+
+import userRoutes from "./src/routes/userRoutes.js";
+import adminRoutes from "./src/routes/adminRoutes.js";
+import jobRoutes from "./src/routes/JobRoutes.js";
+import applicationRoutes from "./src/routes/applicationRoutes.js";
+import authRoutes from "./src/routes/auth.js";
+
 import {
   catchNotFound,
   globalErrorHandler,
 } from "./src/middleware/errorHandler.js";
 
-// ✅ Load Passport Google Strategy (runs once)
 import googlePassportMiddleware from "./src/middleware/googleAuthMiddleware.js";
-import authRoutes from "./src/routes/auth.js";
 
+// ================================
+// ✅ LOAD ENV
+// ================================
 dotenv.config();
 
-// initialize google passport strategy after env is loaded
+// initialize google passport strategy AFTER env loads
 googlePassportMiddleware();
 
 const app = express();
@@ -31,7 +40,9 @@ app.set("trust proxy", 1);
 // ================================
 // ✅ CORS CONFIG
 // ================================
-const allowOrigins = [process.env.CLIENT_URL];
+const allowOrigins = process.env.CLIENT_URL
+  ? process.env.CLIENT_URL.split(",").map((origin) => origin.trim())
+  : [];
 
 app.use(
   cors({
@@ -53,7 +64,6 @@ if (process.env.NODE_ENV === "development") {
 // ✅ CORE MIDDLEWARES
 // ================================
 app.use(cookieParser());
-
 app.use(express.json({ limit: "25mb" }));
 app.use(express.urlencoded({ limit: "25mb", extended: true }));
 
@@ -106,12 +116,14 @@ app.get("/", (req, res) => {
 // ================================
 // ✅ API ROUTES
 // ================================
-app.use("/api/v1/auth", userRoutes);
+app.use("/api/v1/users", userRoutes);
+app.use("/api/v1/admin", adminRoutes);
 app.use("/api/v1/jobs", jobRoutes);
+app.use("/api/v1/applications", applicationRoutes);
 app.use("/auth", authRoutes);
 
 // ================================
-// ✅ ERROR HANDLING
+// ✅ ERROR HANDLING (MUST BE LAST)
 // ================================
 app.use(catchNotFound);
 app.use(globalErrorHandler);
