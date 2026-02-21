@@ -7,19 +7,28 @@ import User from "../models/user.js";
 
 const { successResponse } = responseHandler;
 
-export const uploadJobAvatarController = tryCatchFn(async (req, res) => {
-  console.log("HIT CONTROLLER"); 
+export const uploadJobAvatarController = tryCatchFn(async (req, res, next) => {
 
   const { jobId } = req.params;
-  const { avatar } = req.body;
+  let avatarPayload = null;
 
-  const updatedJob = await uploadJobAvatar(jobId, avatar, next);
+  if (req.file) {
+    const file = req.file;
+    const dataUri = `data:${file.mimetype};base64,${file.buffer.toString("base64")}`;
+    avatarPayload = dataUri;
+  } else if (req.body?.avatar) {
+    avatarPayload = req.body.avatar;
+  }
 
-  return res.status(200).json({
-    status: "success",
-    message: "Job avatar uploaded successfully",
-    data: updatedJob,
-  });
+  const updatedJob = await uploadJobAvatar(jobId, avatarPayload, next);
+  if (!updatedJob) return;
+
+  return successResponse(
+    res,
+    updatedJob,
+    "Job avatar uploaded successfully",
+    200,
+  );
 });
 
 const createJobs = tryCatchFn(async (req, res) => {
@@ -61,8 +70,16 @@ const createJobs = tryCatchFn(async (req, res) => {
   let avatarUrl = "";
   let avatarId = "";
 
-  if (avatar) {
-    const uploaded = await uploadToCloudinary(avatar, {
+  let avatarPayload = null;
+  if (req.file) {
+    const file = req.file;
+    avatarPayload = `data:${file.mimetype};base64,${file.buffer.toString("base64")}`;
+  } else if (req.body.avatar) {
+    avatarPayload = req.body.avatar;
+  }
+
+  if (avatarPayload) {
+    const uploaded = await uploadToCloudinary(avatarPayload, {
       folder: "Worknest/job-avatars",
       width: 50,
       height: 50,
@@ -175,7 +192,7 @@ const deleteJob = tryCatchFn(async (req, res) => {
     return res.status(404).json({ message: "Job not found" });
   }
 
-  if (job.companyLogoId) {
+  if (job.avatarId) {
     await deleteFromCloudinary(job.companyLogoId);
   }
   await job.deleteOne();

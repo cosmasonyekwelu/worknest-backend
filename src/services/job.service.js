@@ -5,33 +5,28 @@ import responseHandler from "../lib/responseHandler.js";
 const { errorResponse, notFoundResponse } = responseHandler;
 
 const uploadJobAvatar = async (jobId, avatar, next) => {
-  try {
-    const job = await Jobs.findById(jobId);
-    if (!job) return next(notFoundResponse("Job not found"));
+  const job = await Jobs.findById(jobId);
+  if (!job) return next(notFoundResponse("Job not found"));
 
-    if (!avatar) {
-      throw new Error("No avatar provided");
-    }
-    if (job.avatarId) {
-      await deleteFromCloudinary(job.avatarId).catch(console.error);
-    }
+  if (!avatar) return next(errorResponse("No avatar provided", 400));
 
-    const { url, public_id } = await uploadToCloudinary(avatar, {
-      folder: "Worknest/job-avatars",
-      width: 200,
-      height: 200,
-      crop: "fit",
-      format: "webp",
-    });
-
-    job.avatar = url || job.avatar;
-    job.avatarId = public_id || job.avatarId;
-
-    await job.save();
-    return job;
-  } catch (err) {
-    return next(errorResponse(err.message, 500));
+  if (job.avatarId) {
+    await deleteFromCloudinary(job.avatarId).catch(console.error);
   }
+
+  const { url, public_id } = await uploadToCloudinary(avatar, {
+    folder: "Worknest/job-avatars",
+    width: 50,
+    height: 50,
+    crop: "fit",
+    format: "webp",
+  });
+
+  job.avatar = url || job.avatar;
+  job.avatarId = public_id || job.avatarId;
+  await job.save();
+
+  return job;
 };
 
 const searchJobService = async ({

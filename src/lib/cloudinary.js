@@ -1,13 +1,14 @@
 import { v2 as cloudinary } from "cloudinary";
 
-
-
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
   secure: true,
 });
+
+console.log(process.env.CLOUDINARY_CLOUD_NAME);
+console.log(process.env.CLOUDINARY_API_KEY);
 
 export const uploadToCloudinary = async (file, options = {}) => {
   try {
@@ -46,7 +47,10 @@ export const uploadToCloudinary = async (file, options = {}) => {
     };
   } catch (error) {
     // Normalize error message for different error shapes without optional chaining
-    const errMsg = (error && error.error && error.error.message) || (error && error.message) || String(error);
+    const errMsg =
+      (error && error.error && error.error.message) ||
+      (error && error.message) ||
+      String(error);
     // Log full error for debugging
     console.error("Cloudinary upload error:", error);
     throw new Error("Upload failed: " + errMsg);
@@ -58,7 +62,10 @@ export const deleteFromCloudinary = async (publicId) => {
     const result = await cloudinary.uploader.destroy(publicId);
     return result;
   } catch (error) {
-    const errMsg = (error && error.error && error.error.message) || (error && error.message) || String(error);
+    const errMsg =
+      (error && error.error && error.error.message) ||
+      (error && error.message) ||
+      String(error);
     console.error("Cloudinary deletion error:", error);
     throw new Error("Deletion failed: " + errMsg);
   }
