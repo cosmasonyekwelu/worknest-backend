@@ -5,28 +5,42 @@ import morgan from "morgan";
 import compression from "compression";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
+import session from "express-session";
+import passport from "passport";
+
 import { helmetOptions, compressionOptions } from "./src/lib/options.js";
 import logger from "./src/config/logger.js";
-import { gracefulShutdown } from "./src/config/db.server.js";
+
+import { connectDB, gracefulShutdown } from "./src/config/db.server.js";
+
+import userRoutes from "./src/routes/userRoutes.js";
+import adminRoutes from "./src/routes/adminRoutes.js";
+import jobRoutes from "./src/routes/JobRoutes.js";
+import applicationRoutes from "./src/routes/applicationRoutes.js";
+import authRoutes from "./src/routes/auth.js";
+import contactRoutes from "./src/routes/contactRoutes.js";
+
 import {
   catchNotFound,
   globalErrorHandler,
 } from "./src/middleware/errorHandler.js";
 
+import googlePassportMiddleware from "./src/middleware/googleAuthMiddleware.js";
+
+// ================================
+// ✅ LOAD ENV
+// ================================
 dotenv.config();
 
-// api routes
-import userRoutes from "./src/routes/userRoutes.js";
-import adminRoutes from "./src/routes/adminRoutes.js";
-import jobRoutes from "./src/routes/jobRoutes.js";
-import applicationRoutes from "./src/routes/applicationRoutes.js";
-import contactRoutes from "./src/routes/contactRoute.js";
+// initialize google passport strategy AFTER env loads
+googlePassportMiddleware();
 
 const app = express();
 app.set("trust proxy", 1);
 
-// const allowOrigins = [process.env.CLIENT_URL];
-
+// ================================
+// ✅ CORS CONFIG
+// ================================
 const allowOrigins = process.env.CLIENT_URL
   ? process.env.CLIENT_URL.split(",").map((origin) => origin.trim())
   : [];
@@ -36,107 +50,132 @@ app.use(
     origin: allowOrigins,
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-    optionsSuccessStatus: 200,
     allowedHeaders: ["Content-Type", "Authorization"],
   }),
 );
+
+// ================================
+// ✅ DEV LOGGER
+// ================================
 if (process.env.NODE_ENV === "development") {
   app.use(morgan("dev"));
 }
 
-console.log("pp", process.env.MONGO_URI);
-
+// ================================
+// ✅ CORE MIDDLEWARES
+// ================================
 app.use(cookieParser());
 app.use(express.json({ limit: "25mb" }));
 app.use(express.urlencoded({ limit: "25mb", extended: true }));
-app.disabled("x-powered-by");
+
+app.disable("x-powered-by");
+
+// ================================
+// ✅ SECURITY + PERFORMANCE
+// ================================
 app.use(helmet(helmetOptions));
 app.use(compression(compressionOptions));
 
+// ================================
+// ✅ SESSION + PASSPORT
+// ================================
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET || "supersecret",
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: process.env.NODE_ENV === "production",
+      httpOnly: true,
+    },
+  }),
+);
+
+app.use(passport.initialize());
+app.use(passport.session());
+
+// ================================
+// ✅ REQUEST TIME MIDDLEWARE
+// ================================
 app.use((req, res, next) => {
   res.requestTime = new Date().toISOString();
   next();
 });
 
+// ================================
+// ✅ ROOT ROUTE
+// ================================
 app.get("/", (req, res) => {
   res.status(200).json({
     status: "success",
     message: "Welcome to Worknest Backend API",
     environment: process.env.NODE_ENV,
-    timestamp: req.requestTime,
+    timestamp: res.requestTime,
   });
 });
 
-// TEST ROUTE
-
-// assemble routes
-app.use("/api/v1/auth", userRoutes);
+// ================================
+// ✅ API ROUTES
+// ================================
+app.use("/api/v1/users", userRoutes);
 app.use("/api/v1/admin", adminRoutes);
 app.use("/api/v1/jobs", jobRoutes);
 app.use("/api/v1/applications", applicationRoutes);
+app.use("/auth", authRoutes);
 app.use("/api/v1/contact", contactRoutes);
 
-//handle route errors
+// ================================
+// ✅ ERROR HANDLING (MUST BE LAST)
+// ================================
 app.use(catchNotFound);
-
-//global error handler
 app.use(globalErrorHandler);
 
+// ================================
+// ✅ SERVER START
+// ================================
 const PORT = process.env.PORT || 5000;
-
-// Start the server
 
 const startServer = async () => {
   try {
+    await connectDB();
+
     const server = app.listen(PORT, "0.0.0.0", () => {
       logger.info(
         `\n✅ Server running in ${process.env.NODE_ENV} mode on port ${PORT}`,
       );
       logger.info(`🌐 http://localhost:${PORT}\n`);
     });
+
     // Handle unhandled promise rejections
     process.on("unhandledRejection", (reason) => {
-      console.error("\n❌ UNHANDLED REJECTION! Shutting down...");
+      logger.error("❌ UNHANDLED REJECTION:", reason);
 
-      const error =
-        reason instanceof Error
-          ? `${reason.name}: ${reason.message}`
-          : String(reason);
-
-      logger.error("Reason:", error);
-
-      // Close server gracefully
       server.close(() => {
-        logger.info("💥 Process terminated due to unhandled rejection");
         process.exit(1);
       });
     });
 
-    // Handle termination signals
+    // Graceful shutdown
     process.on("SIGTERM", gracefulShutdown);
     process.on("SIGINT", gracefulShutdown);
 
-    // Handle any other errors
     server.on("error", (error) => {
-      if (error.syscall !== "listen") throw error;
-
-      switch (error.code) {
-        case "EACCES":
-          logger.error(`Port ${PORT} requires elevated privileges`);
-          process.exit(1);
-          break;
-        case "EADDRINUSE":
-          logger.error(`Port ${PORT} is already in use`);
-          process.exit(1);
-          break;
-        default:
-          throw error;
+      if (error.code === "EACCES") {
+        logger.error(`❌ Port ${PORT} requires elevated privileges`);
+        process.exit(1);
       }
+      if (error.code === "EADDRINUSE") {
+        logger.error(`❌ Port ${PORT} is already in use`);
+        process.exit(1);
+      }
+      throw error;
     });
   } catch (error) {
-    const errorMessage =
-      error instanceof Error ? error.message : "Unknown error";
-    logger.error(`\n❌ Failed to start server: ${errorMessage}`);
+    logger.error(
+      `❌ Failed to start server: ${
+        error instanceof Error ? error.message : "Unknown error"
+      }`,
+    );
     process.exit(1);
   }
 };

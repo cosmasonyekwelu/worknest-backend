@@ -20,9 +20,13 @@ const userSchema = new Schema(
     },
     password: {
       type: String,
-      required: [true, "Password is required"],
+      required: function () {
+        return !this.provider;
+      },
       select: false,
     },
+    googleId: { type: String },
+
     dateOfBirth: {
       type: Date,
     },
@@ -86,4 +90,5 @@ const userSchema = new Schema(
 );
 
 const User = mongoose.models.User || model("User", userSchema);
+
 export default User;
