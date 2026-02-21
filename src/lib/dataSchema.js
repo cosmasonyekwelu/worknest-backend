@@ -140,9 +140,12 @@ export const updatePasswordSchema = z.object({
 });
 
 export const validateUserSchema = z.object({
-  fullname: z.string().min(3, {
-    message: "Full name must be at least 3 characters long",
-  }).optional(),
+  fullname: z
+    .string()
+    .min(3, {
+      message: "Full name must be at least 3 characters long",
+    })
+    .optional(),
   email: z.string().email().optional(),
   phone: z
     .string()
@@ -155,6 +158,12 @@ export const validateUserSchema = z.object({
   bio: z.string().max(1000).optional(),
 });
 
+// export const contactFormSchema = z.object({
+//   fullName: z.string().min(2, "Full name is required"),
+//   email: z.email("Valid email is required"),
+//   subject: z.string().min(3, "Subject is required"),
+//   message: z.string().min(10, "Message must be at least 10 characters"),
+// });
 export const validateAdminProfile = z.object({
   fullname: z.string().min(3, {
     message: "Full name must be at least 3 characters long",
