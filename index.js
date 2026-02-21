@@ -18,6 +18,7 @@ import adminRoutes from "./src/routes/adminRoutes.js";
 import jobRoutes from "./src/routes/JobRoutes.js";
 import applicationRoutes from "./src/routes/applicationRoutes.js";
 import authRoutes from "./src/routes/auth.js";
+import contactRoutes from "./src/routes/contactRoutes.js";
 
 import {
   catchNotFound,
@@ -121,6 +122,7 @@ app.use("/api/v1/admin", adminRoutes);
 app.use("/api/v1/jobs", jobRoutes);
 app.use("/api/v1/applications", applicationRoutes);
 app.use("/auth", authRoutes);
+app.use("/api/v1/contact", contactRoutes);
 
 // ================================
 // ✅ ERROR HANDLING (MUST BE LAST)

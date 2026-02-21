@@ -1,7 +1,35 @@
-import { searchJobService } from "../services/job.service.js";
+import { searchJobService, uploadJobAvatar } from "../services/job.service.js";
+import { deleteFromCloudinary, uploadToCloudinary } from "../lib/cloudinary.js";
+import responseHandler from "../lib/responseHandler.js";
 import tryCatchFn from "../lib/tryCatchFn.js";
 import Jobs from "../models/jobs.js";
 import User from "../models/user.js";
+
+const { successResponse } = responseHandler;
+
+export const uploadJobAvatarController = tryCatchFn(async (req, res, next) => {
+
+  const { jobId } = req.params;
+  let avatarPayload = null;
+
+  if (req.file) {
+    const file = req.file;
+    const dataUri = `data:${file.mimetype};base64,${file.buffer.toString("base64")}`;
+    avatarPayload = dataUri;
+  } else if (req.body?.avatar) {
+    avatarPayload = req.body.avatar;
+  }
+
+  const updatedJob = await uploadJobAvatar(jobId, avatarPayload, next);
+  if (!updatedJob) return;
+
+  return successResponse(
+    res,
+    updatedJob,
+    "Job avatar uploaded successfully",
+    200,
+  );
+});
 
 const createJobs = tryCatchFn(async (req, res) => {
   const {
@@ -17,7 +45,7 @@ const createJobs = tryCatchFn(async (req, res) => {
     benefits,
     companyName,
     companyWebsite,
-    companyLogo,
+    avatar,
     applicationQuestions,
     status,
   } = req.body;
@@ -39,6 +67,29 @@ const createJobs = tryCatchFn(async (req, res) => {
     });
   }
 
+  let avatarUrl = "";
+  let avatarId = "";
+
+  let avatarPayload = null;
+  if (req.file) {
+    const file = req.file;
+    avatarPayload = `data:${file.mimetype};base64,${file.buffer.toString("base64")}`;
+  } else if (req.body.avatar) {
+    avatarPayload = req.body.avatar;
+  }
+
+  if (avatarPayload) {
+    const uploaded = await uploadToCloudinary(avatarPayload, {
+      folder: "Worknest/job-avatars",
+      width: 50,
+      height: 50,
+      crop: "fit",
+      format: "webp",
+    });
+    avatarUrl = uploaded.url;
+    avatarId = uploaded.public_id;
+  }
+
   const job = await Jobs.create({
     title,
     location,
@@ -52,7 +103,8 @@ const createJobs = tryCatchFn(async (req, res) => {
     benefits,
     companyName,
     companyWebsite,
-    companyLogo,
+    avatar: avatarUrl,
+    avatarId,
     applicationQuestions,
     status,
   });
@@ -134,11 +186,16 @@ const updateJob = tryCatchFn(async (req, res) => {
 });
 
 const deleteJob = tryCatchFn(async (req, res) => {
-  const job = await Jobs.findByIdAndDelete(req.params.id);
+  const job = await Jobs.findById(req.params.id);
 
   if (!job) {
     return res.status(404).json({ message: "Job not found" });
   }
+
+  if (job.avatarId) {
+    await deleteFromCloudinary(job.companyLogoId);
+  }
+  await job.deleteOne();
 
   return res
     .status(200)

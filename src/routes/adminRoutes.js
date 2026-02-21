@@ -17,6 +17,7 @@ import {
   validateSignInSchema,
   validateUserSchema,
   updatePasswordSchema,
+  validateAdminProfile,
 } from "../lib/dataSchema.js";
 import { verifyAuth, authorizedRoles } from "../middleware/authenticate.js";
 import { cacheMiddleware, clearCache } from "../middleware/cache.js";
@@ -48,7 +49,7 @@ router.patch(
   "/profile",
   verifyAuth,
   authorizedRoles("admin"),
-  validateFormData(validateUserSchema),
+  validateFormData(validateAdminProfile),
   updateAdminProfile,
 );
 router.patch(
