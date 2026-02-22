@@ -15,10 +15,10 @@ import { connectDB, gracefulShutdown } from "./src/config/db.server.js";
 
 import userRoutes from "./src/routes/userRoutes.js";
 import adminRoutes from "./src/routes/adminRoutes.js";
-import jobRoutes from "./src/routes/JobRoutes.js";
+import jobRoutes from "./src/routes/jobRoutes.js";
 import applicationRoutes from "./src/routes/applicationRoutes.js";
 import authRoutes from "./src/routes/auth.js";
-import contactRoutes from "./src/routes/contactRoutes.js";
+import contactRoutes from "./src/routes/contactRoute.js";
 
 import {
   catchNotFound,
