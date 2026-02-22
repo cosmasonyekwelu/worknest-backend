@@ -1,12 +1,9 @@
 import nodemailer from "nodemailer";
-import dotenv from "dotenv";
-
-dotenv.config();
 
 const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_HOST,
   port: parseInt(process.env.EMAIL_PORT, 10),
-  secure: true,
+  secure: false,
   requireTLS: true, //upgrade to a secure conn once connected
   auth: {
     user: process.env.EMAIL_USER,
@@ -19,22 +16,27 @@ const transporter = nodemailer.createTransport({
 });
 
 //verify email service connection
+let emailVerified = false;
 const verifyEmailConnection = async () => {
-  try {
-    await transporter.verify();
-    console.log("✅ Email service connection verified");
-  } catch (error) {
-    console.error("❌ Failed to connect to email service", {
-      error: error.message,
-      code: error.code,
-      stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
-    });
-    throw new Error("Email service connection failed");
+  if (!emailVerified) {
+    try {
+      await transporter.verify();
+      emailVerified = true;
+      console.log("✅ Email service connection verified");
+    } catch (error) {
+      console.error("❌ Failed to connect to email service", {
+        error: error.message,
+        code: error.code,
+        stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
+      });
+      throw new Error("Email service connection failed");
+    }
   }
 };
-verifyEmailConnection().catch(console.error);
+// verifyEmailConnection().catch(console.error);
 
 export const sendEmail = async ({ to, subject, html }) => {
+  await verifyEmailConnection();
   const mailOptions = {
     from: "Worknest <worknestnig@gmail.com>",
     to,
@@ -47,3 +49,8 @@ export const sendEmail = async ({ to, subject, html }) => {
     console.error("Error sending email:", error);
   }
 };
+
+// Verify in background, non-blocking
+// verifyEmailConnection()
+//   .then(() => console.log("✅ Email service ready"))
+//   .catch(err => console.warn("⚠️  Email service unavailable at startup:", err.message));
