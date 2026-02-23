@@ -8,7 +8,7 @@ const googlePassportMiddleware = () => {
       {
         clientID: process.env.GOOGLE_CLIENT_ID,
         clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-        callbackURL: `${process.env.WORKNEST_BASE_URL}/api/v1/auth/google/callback`,
+        callbackURL: `${process.env.WORKNEST_BASE_URL}/auth/google/callback`,
       },
       async (accessToken, refreshToken, profile, done) => {
         try {

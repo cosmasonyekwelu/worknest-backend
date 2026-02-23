@@ -26,6 +26,7 @@ const userSchema = new Schema(
       select: false,
     },
     googleId: { type: String },
+    provider: { type: String },
 
     dateOfBirth: {
       type: Date,

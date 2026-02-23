@@ -24,7 +24,7 @@ router.get(
       return res.redirect(`${process.env.CLIENT_URL}/dashboard`);
     }
 
-    const token = jwt.sign({ userId: req.user._id }, process.env.JWT_SECRET, {
+    const token = jwt.sign({ userId: req.user._id }, process.env.JWT_SECRET_KEY, {
       expiresIn: "7d",
     });
 
