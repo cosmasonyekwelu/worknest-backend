@@ -91,7 +91,7 @@ export const resendVerificationTemplate = (name, verificationCode) => `
               <p>Do not share this code with anyone.</p>    
           </div>
           <div class="footer">
-              <p>© ${new Date().getFullYear()} Clinicare - Booking Center Clinic. All rights reserved.</p>
+              <p>© ${new Date().getFullYear()} Worknest - Job search center. All rights reserved.</p>
           </div>
       </div>
   </body>
@@ -135,13 +135,13 @@ export const passwordResetTemplate = (name, email, resetToken) => `
               <p>Follow the link to reset your password:</p>
               <p style="font-weight: bold; font-size: 20px; color:rgb(0, 0, 0);">${
                 process.env.CLIENT_URL
-              }/account/reset-password?email=${email}&token=${resetToken}</p>
+              }/auth/reset-password?email=${email}&token=${resetToken}</p>
               <p>Do not share this link with anyone.</p>  
               <p>This link will expire in 15 minutes.</p>  
               <p>If you did not request a password reset, please ignore this email.</p>   
           </div>
           <div class="footer">
-              <p>© ${new Date().getFullYear()} Clinicare - Booking Center Clinic. All rights reserved.</p>
+              <p>© ${new Date().getFullYear()} Worknest - Job search center. All rights reserved.</p>
           </div>
       </div>
   </body>
