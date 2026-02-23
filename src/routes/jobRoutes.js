@@ -22,8 +22,8 @@ const router = express.Router();
 
 router.patch(
   "/:jobId/upload-avatar",
-  // verifyAuth,
-  // authorizedRoles("admin"),
+  verifyAuth,
+  authorizedRoles("admin"),
   uploadImage.single("avatar"),
   uploadJobAvatarController,
 );
