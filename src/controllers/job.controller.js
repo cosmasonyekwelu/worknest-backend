@@ -193,7 +193,7 @@ const deleteJob = tryCatchFn(async (req, res) => {
   }
 
   if (job.avatarId) {
-    await deleteFromCloudinary(job.companyLogoId);
+    await deleteFromCloudinary(job.avatarId);
   }
   await job.deleteOne();
 
