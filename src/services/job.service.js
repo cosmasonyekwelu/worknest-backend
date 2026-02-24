@@ -1,4 +1,33 @@
 import Jobs from "../models/jobs.js";
+import { uploadToCloudinary, deleteFromCloudinary } from "../lib/cloudinary.js";
+import responseHandler from "../lib/responseHandler.js";
+
+const { errorResponse, notFoundResponse } = responseHandler;
+
+const uploadJobAvatar = async (jobId, avatar, next) => {
+  const job = await Jobs.findById(jobId);
+  if (!job) return next(notFoundResponse("Job not found"));
+
+  if (!avatar) return next(errorResponse("No avatar provided", 400));
+
+  if (job.avatarId) {
+    await deleteFromCloudinary(job.avatarId).catch(console.error);
+  }
+
+  const { url, public_id } = await uploadToCloudinary(avatar, {
+    folder: "Worknest/job-avatars",
+    width: 50,
+    height: 50,
+    crop: "fit",
+    format: "webp",
+  });
+
+  job.avatar = url || job.avatar;
+  job.avatarId = public_id || job.avatarId;
+  await job.save();
+
+  return job;
+};
 
 const searchJobService = async ({
   keyword,
@@ -12,7 +41,6 @@ const searchJobService = async ({
   limit = 10,
 }) => {
   const filter = {};
-
 
   if (isAdmin && status) {
     filter.status = status;
@@ -41,7 +69,6 @@ const searchJobService = async ({
     filter["salaryRange.max"] = { $lte: Number(salaryMax) };
   }
 
-
   let sort = "-createdAt";
 
   const skip = (Number(page) - 1) * Number(limit);
@@ -62,4 +89,4 @@ const searchJobService = async ({
   };
 };
 
-export { searchJobService };
+export { searchJobService, uploadJobAvatar };

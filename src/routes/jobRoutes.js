@@ -9,12 +9,33 @@ import {
   saveJobs,
   unsaveJob,
   getSavedJobs,
+  uploadJobAvatarController,
 } from "../controllers/job.controller.js";
-import { authorizedRoles, verifyAuth, optionalAuth } from "../middleware/authenticate.js";
+import {
+  authorizedRoles,
+  verifyAuth,
+  optionalAuth,
+} from "../middleware/authenticate.js";
+import uploadImage from "../middleware/uploadImage.js";
 
 const router = express.Router();
 
-router.post("/create", verifyAuth, authorizedRoles("admin"), createJobs);
+router.patch(
+  "/:jobId/upload-avatar",
+  verifyAuth,
+  authorizedRoles("admin"),
+  uploadImage.single("avatar"),
+  uploadJobAvatarController,
+);
+
+router.post(
+  "/create",
+  verifyAuth,
+  authorizedRoles("admin"),
+  uploadImage.single("avatar"),
+  createJobs,
+);
+
 router.patch("/:id/update", verifyAuth, authorizedRoles("admin"), updateJob);
 router.delete("/:id/delete", verifyAuth, authorizedRoles("admin"), deleteJob);
 

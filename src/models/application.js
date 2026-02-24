@@ -6,11 +6,13 @@ const applicationSchema = new Schema(
       type: Schema.Types.ObjectId,
       ref: "User",
       required: true,
+      index: true,
     },
     job: {
       type: Schema.Types.ObjectId,
       ref: "Jobs",
       required: true,
+      index: true,
     },
     resumeUrl: {
       type: String,
@@ -24,6 +26,16 @@ const applicationSchema = new Schema(
         answer: String,
       },
     ],
+
+    //NEW: Snapshot of applicant's personal info at submission time
+    personalInfo: {
+      firstname: { type: String, required: true },
+      lastname: { type: String, required: true },
+      email: { type: String, required: true },
+      phone: String,
+      currentLocation: String, // field name without space
+    },
+
     status: {
       type: String,
       enum: [
@@ -36,22 +48,17 @@ const applicationSchema = new Schema(
         "hired",
       ],
       default: "submitted",
+      index: true,
     },
     internalNote: {
       type: String,
-      select: false, // ❌ Fix: Changed from 'private: true' to 'select: false'
+      select: false,
     },
     statusHistory: [
       {
         status: String,
-        changedAt: {
-          type: Date,
-          default: Date.now,
-        },
-        changedBy: {
-          type: Schema.Types.ObjectId,
-          ref: "User",
-        },
+        changedAt: { type: Date, default: Date.now },
+        changedBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
         note: String,
       },
     ],
@@ -62,15 +69,14 @@ const applicationSchema = new Schema(
 // Compound index to prevent duplicate applications
 applicationSchema.index({ applicant: 1, job: 1 }, { unique: true });
 
-// ❌ Fix: REMOVED the duplicate status history middleware
-// We'll handle status history only in the service layer
+// Index for sorting by newest
+applicationSchema.index({ createdAt: -1 });
 
-// Static method to check if user has already applied
+// Static method (optional)
 applicationSchema.statics.hasApplied = async function (applicantId, jobId) {
   const application = await this.findOne({ applicant: applicantId, job: jobId });
   return !!application;
 };
 
 const Application = mongoose.models.Application || model("Application", applicationSchema);
-
 export default Application;

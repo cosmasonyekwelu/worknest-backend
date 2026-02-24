@@ -21,6 +21,7 @@ import {
 } from "../lib/dataSchema.js";
 import { verifyAuth } from "../middleware/authenticate.js";
 import { cacheMiddleware, clearCache } from "../middleware/cache.js";
+import uploadImage from "../middleware/uploadImage.js";
 import {
   deleteAccount,
   forgotPassword,
@@ -107,6 +108,7 @@ router.post("/logout", verifyAuth, clearCache("auth_user"), logout);
 router.patch(
   "/upload-avatar",
   verifyAuth,
+  uploadImage.single("avatar"),
   clearCache("auth_user"),
   uploadAvatar
 );

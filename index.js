@@ -20,12 +20,16 @@ import userRoutes from "./src/routes/userRoutes.js";
 import adminRoutes from "./src/routes/adminRoutes.js";
 import jobRoutes from "./src/routes/jobRoutes.js";
 import applicationRoutes from "./src/routes/applicationRoutes.js";
-import notificationRoutes from "./src/routes/notificationRoutes.js";
+import contactRoutes from "./src/routes/contactRoute.js";
 
 const app = express();
 app.set("trust proxy", 1);
 
-const allowOrigins = [process.env.CLIENT_URL];
+// const allowOrigins = [process.env.CLIENT_URL];
+
+const allowOrigins = process.env.CLIENT_URL
+  ? process.env.CLIENT_URL.split(",").map((origin) => origin.trim())
+  : [];
 
 app.use(
   cors({
@@ -70,7 +74,7 @@ app.use("/api/v1/auth", userRoutes);
 app.use("/api/v1/admin", adminRoutes);
 app.use("/api/v1/jobs", jobRoutes);
 app.use("/api/v1/applications", applicationRoutes);
-app.use("/api/v1/notifications", notificationRoutes);
+app.use("/api/v1/contact", contactRoutes);
 
 //handle route errors
 app.use(catchNotFound);
