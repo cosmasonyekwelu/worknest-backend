@@ -330,3 +330,14 @@ curl -X PATCH http://localhost:5000/api/admin/applications/{id} \
 - Use Cloudinary URLs returned by the API for media rendering
 
 If you can run `docker-compose up` and hit `/health`, you are ready to build against this backend.
+
+
+RESTful routes with authentication middleware
+POST /create - Create notification
+GET / - Get user notifications (paginated)
+GET /unread/count - Get unread count
+GET /:id - Get specific notification
+PATCH /:id/read - Mark as read
+PATCH /mark/all-read - Mark all as read
+DELETE /:id - Delete notification
+DELETE / - Delete all notifications
