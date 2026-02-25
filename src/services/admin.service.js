@@ -10,9 +10,9 @@ const adminService = {
   // admin login service - only admins can login
   adminLogin: async (req, next) => {
     const user = await User.findOne({ email: req.body.email }).select(
-      "+password"
+      "+password",
     );
-    
+
     if (!user) {
       return next(errorResponse("Admin account not found", 401));
     }
@@ -22,17 +22,17 @@ const adminService = {
       return next(
         errorResponse(
           "Only admins can access this route. Please contact an administrator to upgrade your account.",
-          403
-        )
+          403,
+        ),
       );
     }
 
     // Handle password comparison
     const isPasswordValid = await bcrypt.compare(
       req.body.password,
-      user.password
+      user.password,
     );
-    
+
     if (!isPasswordValid) {
       return next(errorResponse("Incorrect email or password", 401));
     }
@@ -43,7 +43,7 @@ const adminService = {
   // authenticate admin - verify admin status
   authenticateAdmin: async (userId, next) => {
     const user = await User.findById(userId);
-    
+
     if (!user) {
       return next(notFoundResponse("Admin not found"));
     }
@@ -51,7 +51,7 @@ const adminService = {
     // Verify user is still an admin
     if (user.role !== "admin") {
       return next(
-        errorResponse("Your admin privileges have been revoked", 403)
+        errorResponse("Your admin privileges have been revoked", 403),
       );
     }
 
@@ -66,13 +66,13 @@ const adminService = {
 
     // Verify the refresh token
     const decoded = jwt.verify(refreshToken, process.env.JWT_SECRET_KEY);
-    
+
     if (!decoded) {
       return next(errorResponse("Invalid refresh token", 401));
     }
 
     const user = await User.findById(decoded.id);
-    
+
     if (!user) {
       return next(notFoundResponse("Admin account not found"));
     }
@@ -80,14 +80,14 @@ const adminService = {
     // Verify user is still an admin
     if (user.role !== "admin") {
       return next(
-        errorResponse("Your admin privileges have been revoked", 403)
+        errorResponse("Your admin privileges have been revoked", 403),
       );
     }
 
     return user;
   },
-//   don't think we might need it but i will leave it here for now
-   getAllUsers: async (page = 1, limit = 3, query = "", role = "", next) => {
+  //   don't think we might need it but i will leave it here for now
+  getAllUsers: async (page = 1, limit = 3, query = "", role = "", next) => {
     const sanitizeQuery =
       query || role
         ? (query || role).toLowerCase().replace(/[^\w\s]/gi, "")
@@ -131,7 +131,7 @@ const adminService = {
       users,
     };
   },
-    deleteAccountAdmins: async (userId, next) => {
+  deleteAccountAdmins: async (userId, next) => {
     const user = await User.findById(userId);
     if (!user) {
       return next(notFoundResponse("Account not found"));

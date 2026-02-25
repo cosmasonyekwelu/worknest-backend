@@ -10,6 +10,8 @@ import {
 } from "../controllers/application.controller.js";
 import { authorizedRoles, verifyAuth } from "../middleware/authenticate.js";
 
+import upload from "../middleware/upload.js"; // Import your custom upload middleware
+
 const router = express.Router();
 
 // Applicant routes
@@ -17,8 +19,11 @@ router.post(
   "/:jobId/apply",
   verifyAuth,
   authorizedRoles("applicant"),
+  upload.single('resume'), // Use upload middleware
   applyForJob
 );
+
+// Get current user's applications
 
 router.get(
   "/me",

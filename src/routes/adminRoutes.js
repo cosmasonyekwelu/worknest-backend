@@ -15,11 +15,12 @@ import { rateLimiter } from "../middleware/rateLimit.js";
 import { validateFormData } from "../middleware/validateForm.js";
 import {
   validateSignInSchema,
-  validateUserSchema,
   updatePasswordSchema,
+  validateAdminProfile,
 } from "../lib/dataSchema.js";
 import { verifyAuth, authorizedRoles } from "../middleware/authenticate.js";
 import { cacheMiddleware, clearCache } from "../middleware/cache.js";
+import uploadImage from "../middleware/uploadImage.js";
 
 const router = express.Router();
 
@@ -48,12 +49,14 @@ router.patch(
   "/profile",
   verifyAuth,
   authorizedRoles("admin"),
-  validateFormData(validateUserSchema),
+  validateFormData(validateAdminProfile),
   updateAdminProfile,
 );
 router.patch(
   "/upload-avatar",
   verifyAuth,
+  authorizedRoles("admin"),
+    uploadImage.single("avatar"),
   clearCache("admin_profile"),
   adminUploadAvatar,
 );

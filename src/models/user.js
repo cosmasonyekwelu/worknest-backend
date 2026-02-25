@@ -15,6 +15,9 @@ const userSchema = new Schema(
       lowercase: true,
       unique: true,
     },
+    country: {
+      type: String,
+    },
     password: {
       type: String,
       required: [true, "Password is required"],
