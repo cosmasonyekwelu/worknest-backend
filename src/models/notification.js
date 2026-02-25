@@ -5,61 +5,47 @@ const notificationSchema = new Schema(
     recipient: {
       type: Schema.Types.ObjectId,
       ref: "User",
-      required: [true, "Recipient is required"],
+      required: true,
       index: true,
-    },
-    sender: {
-      type: Schema.Types.ObjectId,
-      ref: "User",
-      default: null,
     },
     type: {
       type: String,
       enum: [
-        "application_received",
-        "application_status",
-        "job_posted",
-        "profile_viewed",
-        "message",
-        "job_alert",
-        "system",
+        "application_submitted",      // applicant confirmation
+        "application_status_changed", // status update
+        "new_application_admin",      // admin alert
+        "job_expiring",               // optional future use
       ],
       required: true,
     },
     title: {
       type: String,
       required: true,
-      maxLength: 100,
+      trim: true,
     },
     message: {
       type: String,
       required: true,
-      maxLength: 500,
+      trim: true,
     },
-    relatedData: {
-      jobId: { type: Schema.Types.ObjectId, ref: "Job" },
-      applicationId: { type: Schema.Types.ObjectId, ref: "Application" },
-      userId: { type: Schema.Types.ObjectId, ref: "User" },
+    data: {
+      type: Schema.Types.Mixed, // can hold jobId, applicationId, etc.
+      default: {},
     },
-    isRead: {
+    read: {
       type: Boolean,
       default: false,
-      index: true,
     },
-    priority: {
-      type: String,
-      enum: ["low", "medium", "high"],
-      default: "medium",
-    },
-    actionUrl: {
-      type: String,
-      default: null,
+    readAt: {
+      type: Date,
     },
   },
-  { timestamps: true },
+  { timestamps: true } // adds createdAt, updatedAt
 );
 
-notificationSchema.index({ recipient: 1, createdAt: -1 });
+// Index for sorting by newest
+notificationSchema.index({ createdAt: -1 });
 
-export default mongoose.models.Notification ||
-  model("Notification", notificationSchema);
+const Notification = mongoose.models.Notification || model("Notification", notificationSchema);
+
+export default Notification;

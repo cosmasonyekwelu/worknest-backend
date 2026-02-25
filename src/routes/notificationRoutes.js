@@ -1,36 +1,22 @@
 import express from "express";
 import {
-  getUserNotifications,
-  getNotificationById,
-  markNotificationAsRead,
-  markAllAsRead,
-  deleteNotification,
-  deleteAllNotifications,
+  getNotifications,
   getUnreadCount,
+  markNotificationRead,
+  markAllRead,
+  deleteNotificationCtrl,
 } from "../controllers/notification.controller.js";
 import { verifyAuth } from "../middleware/authenticate.js";
 
 const router = express.Router();
 
-// Get all notifications for the authenticated user
-router.get("/", verifyAuth, getUserNotifications);
+// All notification routes require authentication
+router.use(verifyAuth);
 
-// Get unread notifications count
-router.get("/unread/count", verifyAuth, getUnreadCount);
-
-// Get a single notification by ID
-router.get("/:id", verifyAuth, getNotificationById);
-
-// Mark a single notification as read
-router.patch("/:id/read", verifyAuth, markNotificationAsRead);
-
-// Mark all notifications as read
-router.patch("/mark/all-read", verifyAuth, markAllAsRead);
-
-// Delete a single notification
-router.delete("/:id", verifyAuth, deleteNotification);
-
-// Delete all notifications
-router.delete("/", verifyAuth, deleteAllNotifications);
+router.get("/", getNotifications);                 // GET /notifications?page=1&limit=20&unreadOnly=false
+router.get("/unread-count", getUnreadCount);       // GET /notifications/unread-count
+router.patch("/:id/read", markNotificationRead);   // PATCH /notifications/:id/read
+router.patch("/read-all", markAllRead);            // PATCH /notifications/read-all
+router.delete("/:id", deleteNotificationCtrl);     // DELETE /notifications/:id
 
 export default router;

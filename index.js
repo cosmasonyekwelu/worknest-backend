@@ -21,6 +21,7 @@ import adminRoutes from "./src/routes/adminRoutes.js";
 import jobRoutes from "./src/routes/jobRoutes.js";
 import applicationRoutes from "./src/routes/applicationRoutes.js";
 import contactRoutes from "./src/routes/contactRoute.js";
+import notificationRoutes from "./src/routes/notificationRoutes.js";
 
 const app = express();
 app.set("trust proxy", 1);
@@ -73,6 +74,7 @@ app.use("/api/v1/admin", adminRoutes);
 app.use("/api/v1/jobs", jobRoutes);
 app.use("/api/v1/applications", applicationRoutes);
 app.use("/api/v1/contact", contactRoutes);
+app.use("/api/v1/notifications", notificationRoutes);
 
 //handle route errors
 app.use(catchNotFound);
