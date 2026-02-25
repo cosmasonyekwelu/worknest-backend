@@ -29,6 +29,7 @@
     "multer": "^2.0.2",
     "node-cache": "^5.1.2",
     "nodemailer": "^7.0.12",
+    "socket.io": "^4.8.3",
     "winston": "^3.19.0",
     "zod": "^4.3.5"
   },

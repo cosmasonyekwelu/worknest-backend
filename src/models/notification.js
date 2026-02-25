@@ -6,10 +6,12 @@ const notificationSchema = new Schema(
       type: Schema.Types.ObjectId,
       ref: "User",
       required: [true, "Recipient is required"],
+      index: true,
     },
     sender: {
       type: Schema.Types.ObjectId,
       ref: "User",
+      default: null,
     },
     type: {
       type: String,
@@ -26,25 +28,23 @@ const notificationSchema = new Schema(
     },
     title: {
       type: String,
-      required: [true, "Title is required"],
-      maxLength: [100, "Title cannot exceed 100 characters"],
+      required: true,
+      maxLength: 100,
     },
     message: {
       type: String,
-      required: [true, "Message is required"],
-      maxLength: [500, "Message cannot exceed 500 characters"],
+      required: true,
+      maxLength: 500,
     },
     relatedData: {
-      type: {
-        jobId: Schema.Types.ObjectId,
-        applicationId: Schema.Types.ObjectId,
-        userId: Schema.Types.ObjectId,
-      },
-      default: {},
+      jobId: { type: Schema.Types.ObjectId, ref: "Job" },
+      applicationId: { type: Schema.Types.ObjectId, ref: "Application" },
+      userId: { type: Schema.Types.ObjectId, ref: "User" },
     },
     isRead: {
       type: Boolean,
       default: false,
+      index: true,
     },
     priority: {
       type: String,
@@ -53,17 +53,13 @@ const notificationSchema = new Schema(
     },
     actionUrl: {
       type: String,
+      default: null,
     },
   },
   { timestamps: true },
 );
 
 notificationSchema.index({ recipient: 1, createdAt: -1 });
-notificationSchema.index({ recipient: 1, isRead: 1 });
-notificationSchema.index({ createdAt: -1 });
-notificationSchema.index({ type: 1 });
 
-const Notification =
-  mongoose.models.Notification || model("Notification", notificationSchema);
-
-export default Notification;
+export default mongoose.models.Notification ||
+  model("Notification", notificationSchema);

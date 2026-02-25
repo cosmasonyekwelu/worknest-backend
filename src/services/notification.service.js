@@ -1,15 +1,16 @@
 import Notification from "../models/notification.js";
 
-/* ================= CREATE ================= */
+/* ================= CREATE (AUTO ONLY) ================= */
 export const createNotificationService = async ({
   recipient,
-  sender,
+  sender = null,
   type,
   title,
   message,
-  relatedData,
+  relatedData = {},
   priority = "medium",
-  actionUrl,
+  actionUrl = null,
+  io,
 }) => {
   const notification = await Notification.create({
     recipient,
@@ -22,23 +23,36 @@ export const createNotificationService = async ({
     actionUrl,
   });
 
-  return {
-    status: "success",
-    message: "Notification created successfully",
-    data: notification,
-  };
+  const populated = await Notification.findById(notification._id)
+    .populate("sender", "fullname avatar email")
+    .populate("recipient", "fullname avatar email")
+    .populate("relatedData.jobId", "title")
+    .populate("relatedData.applicationId", "status")
+    .populate("relatedData.userId", "fullname avatar");
+
+  // Real-time emit
+  if (io) {
+    io.to(recipient.toString()).emit("new_notification", populated);
+
+    const unreadCount = await Notification.countDocuments({
+      recipient,
+      isRead: false,
+    });
+
+    io.to(recipient.toString()).emit("unread_count", unreadCount);
+  }
+
+  return populated;
 };
 
-/* ================= GET ALL (Sender + Recipient) ================= */
+/* ================= GET ALL ================= */
 export const getUserNotificationsService = async ({
   userId,
   page = 1,
   limit = 20,
   isRead,
 }) => {
-  const filter = {
-    $or: [{ recipient: userId }, { sender: userId }],
-  };
+  const filter = { recipient: userId };
 
   if (isRead !== undefined) {
     filter.isRead = isRead;
@@ -46,158 +60,102 @@ export const getUserNotificationsService = async ({
 
   const skip = (Number(page) - 1) * Number(limit);
 
-  const totalNotifications = await Notification.countDocuments(filter);
+  const total = await Notification.countDocuments(filter);
 
   const notifications = await Notification.find(filter)
     .sort({ createdAt: -1 })
     .skip(skip)
     .limit(Number(limit))
     .populate("sender", "fullname avatar email")
-    .populate("recipient", "fullname avatar email")
     .populate("relatedData.jobId", "title")
     .populate("relatedData.applicationId", "status")
     .populate("relatedData.userId", "fullname avatar");
 
   return {
-    status: "success",
-    data: notifications,
-    totalNotifications,
-    totalPages: Math.ceil(totalNotifications / Number(limit)),
+    notifications,
+    total,
+    totalPages: Math.ceil(total / Number(limit)),
     currentPage: Number(page),
   };
 };
 
 /* ================= GET SINGLE ================= */
-export const getNotificationByIdService = async (notificationId, userId) => {
-  const notification = await Notification.findById(notificationId)
-    .populate("sender", "fullname avatar email")
-    .populate("recipient", "fullname avatar email")
-    .populate("relatedData.jobId", "title")
-    .populate("relatedData.applicationId", "status")
-    .populate("relatedData.userId", "fullname avatar");
+export const getNotificationByIdService = async (id, userId) => {
+  const notification = await Notification.findOne({
+    _id: id,
+    recipient: userId,
+  });
 
   if (!notification) {
-    return {
-      status: "error",
-      message: "Notification not found",
-    };
+    return null;
   }
 
-  if (
-    notification.recipient._id.toString() !== userId.toString() &&
-    notification.sender?._id.toString() !== userId.toString()
-  ) {
-    return {
-      status: "error",
-      message: "Not authorized",
-    };
-  }
-
-  return {
-    status: "success",
-    data: notification,
-  };
+  return notification;
 };
 
 /* ================= DELETE SINGLE ================= */
-export const deleteNotificationService = async (notificationId, userId) => {
-  const notification = await Notification.findById(notificationId);
+export const deleteNotificationService = async (id, userId) => {
+  const deleted = await Notification.findOneAndDelete({
+    _id: id,
+    recipient: userId,
+  });
 
-  if (!notification) {
-    return {
-      status: "error",
-      message: "Notification not found",
-    };
-  }
-
-  if (
-    notification.recipient.toString() !== userId.toString() &&
-    notification.sender?.toString() !== userId.toString()
-  ) {
-    return {
-      status: "error",
-      message: "Not authorized",
-    };
-  }
-
-  await Notification.findByIdAndDelete(notificationId);
-
-  return {
-    status: "success",
-    message: "Notification deleted successfully",
-  };
+  return deleted;
 };
 
 /* ================= DELETE ALL ================= */
 export const deleteAllNotificationsService = async (userId) => {
   const result = await Notification.deleteMany({
-    $or: [{ recipient: userId }, { sender: userId }],
+    recipient: userId,
   });
 
-  return {
-    status: "success",
-    message: "All notifications deleted successfully",
-    data: { deletedCount: result.deletedCount },
-  };
+  return result.deletedCount;
 };
 
-/* ================= MARK SINGLE AS READ ================= */
-export const markNotificationAsReadService = async (notificationId, userId) => {
-  const notification = await Notification.findById(notificationId);
+/* ================= MARK SINGLE ================= */
+export const markNotificationAsReadService = async (id, userId, io) => {
+  const notification = await Notification.findOne({
+    _id: id,
+    recipient: userId,
+  });
 
-  if (!notification) {
-    return {
-      status: "error",
-      message: "Notification not found",
-    };
+  if (!notification) return null;
+
+  if (!notification.isRead) {
+    notification.isRead = true;
+    await notification.save();
   }
 
-  if (
-    notification.recipient.toString() !== userId.toString() &&
-    notification.sender?.toString() !== userId.toString()
-  ) {
-    return {
-      status: "error",
-      message: "Not authorized",
-    };
-  }
-
-  notification.isRead = true;
-  await notification.save();
-
-  return {
-    status: "success",
-    message: "Notification marked as read",
-    data: notification,
-  };
-};
-
-/* ================= MARK ALL AS READ ================= */
-export const markAllNotificationsAsReadService = async (userId) => {
-  const result = await Notification.updateMany(
-    {
-      $or: [{ recipient: userId }, { sender: userId }],
+  if (io) {
+    const unreadCount = await Notification.countDocuments({
+      recipient: userId,
       isRead: false,
-    },
+    });
+
+    io.to(userId.toString()).emit("unread_count", unreadCount);
+  }
+
+  return notification;
+};
+
+/* ================= MARK ALL ================= */
+export const markAllNotificationsAsReadService = async (userId, io) => {
+  await Notification.updateMany(
+    { recipient: userId, isRead: false },
     { isRead: true },
   );
 
-  return {
-    status: "success",
-    message: "All notifications marked as read",
-    data: { modifiedCount: result.modifiedCount },
-  };
+  if (io) {
+    io.to(userId.toString()).emit("unread_count", 0);
+  }
+
+  return true;
 };
 
 /* ================= UNREAD COUNT ================= */
 export const getUnreadCountService = async (userId) => {
-  const unreadCount = await Notification.countDocuments({
-    $or: [{ recipient: userId }, { sender: userId }],
+  return await Notification.countDocuments({
+    recipient: userId,
     isRead: false,
   });
-
-  return {
-    status: "success",
-    data: { unreadCount },
-  };
 };

@@ -1,6 +1,5 @@
 import tryCatchFn from "../lib/tryCatchFn.js";
 import {
-  createNotificationService,
   getUserNotificationsService,
   markNotificationAsReadService,
   markAllNotificationsAsReadService,
@@ -10,126 +9,84 @@ import {
   getNotificationByIdService,
 } from "../services/notification.service.js";
 
-/* ================= CREATE ================= */
-const createNotification = tryCatchFn(async (req, res) => {
-  const {
-    recipient,
-    sender,
-    type,
-    title,
-    message,
-    relatedData,
-    priority,
-    actionUrl,
-  } = req.body;
-
-  if (!recipient || !type || !title || !message) {
-    return res.status(400).json({
-      status: "error",
-      message:
-        "Please provide all required fields (recipient, type, title, message)",
-    });
-  }
-
-  const result = await createNotificationService({
-    recipient,
-    sender: sender || null,
-    type,
-    title,
-    message,
-    relatedData: relatedData || {},
-    priority: priority || "medium",
-    actionUrl: actionUrl || null,
-  });
-
-  return res.status(201).json(result);
-});
-
 /* ================= GET ALL ================= */
-const getUserNotifications = tryCatchFn(async (req, res) => {
-  const { page = 1, limit = 20, isRead } = req.query;
-  const userId = req.user._id;
+export const getUserNotifications = tryCatchFn(async (req, res) => {
+  const { page, limit, isRead } = req.query;
 
   const result = await getUserNotificationsService({
-    userId,
+    userId: req.user._id,
     page,
     limit,
-    isRead: isRead !== undefined ? JSON.parse(isRead) : undefined,
+    isRead: isRead !== undefined ? isRead === "true" : undefined,
   });
 
-  return res.status(200).json(result);
+  res.status(200).json({ status: "success", ...result });
 });
 
 /* ================= GET SINGLE ================= */
-const getNotificationById = tryCatchFn(async (req, res) => {
-  const { id } = req.params;
-  const userId = req.user._id;
+export const getNotificationById = tryCatchFn(async (req, res) => {
+  const notification = await getNotificationByIdService(
+    req.params.id,
+    req.user._id,
+  );
 
-  const result = await getNotificationByIdService(id, userId);
-
-  if (result.status === "error") {
-    return res.status(403).json(result);
+  if (!notification) {
+    return res.status(404).json({ status: "error", message: "Not found" });
   }
 
-  return res.status(200).json(result);
+  res.status(200).json({ status: "success", data: notification });
 });
 
 /* ================= DELETE SINGLE ================= */
-const deleteNotification = tryCatchFn(async (req, res) => {
-  const { id } = req.params;
-  const userId = req.user._id;
+export const deleteNotification = tryCatchFn(async (req, res) => {
+  const deleted = await deleteNotificationService(req.params.id, req.user._id);
 
-  const result = await deleteNotificationService(id, userId);
-
-  if (result.status === "error") {
-    return res.status(403).json(result);
+  if (!deleted) {
+    return res.status(404).json({ status: "error", message: "Not found" });
   }
 
-  return res.status(200).json(result);
+  res.status(200).json({ status: "success", message: "Deleted successfully" });
 });
 
 /* ================= DELETE ALL ================= */
-const deleteAllNotifications = tryCatchFn(async (req, res) => {
-  const userId = req.user._id;
+export const deleteAllNotifications = tryCatchFn(async (req, res) => {
+  const count = await deleteAllNotificationsService(req.user._id);
 
-  const result = await deleteAllNotificationsService(userId);
-
-  return res.status(200).json(result);
+  res.status(200).json({
+    status: "success",
+    message: "All deleted",
+    deletedCount: count,
+  });
 });
 
-/* ================= MARK ================= */
-const markNotificationAsRead = tryCatchFn(async (req, res) => {
-  const { id } = req.params;
-  const userId = req.user._id;
+/* ================= MARK SINGLE ================= */
+export const markNotificationAsRead = tryCatchFn(async (req, res) => {
+  const notification = await markNotificationAsReadService(
+    req.params.id,
+    req.user._id,
+    req.app.get("io"),
+  );
 
-  const result = await markNotificationAsReadService(id, userId);
-
-  if (result.status === "error") {
-    return res.status(403).json(result);
+  if (!notification) {
+    return res.status(404).json({ status: "error", message: "Not found" });
   }
 
-  return res.status(200).json(result);
+  res.status(200).json({ status: "success", data: notification });
 });
 
-const markAllAsRead = tryCatchFn(async (req, res) => {
-  const userId = req.user._id;
-  const result = await markAllNotificationsAsReadService(userId);
-  return res.status(200).json(result);
+/* ================= MARK ALL ================= */
+export const markAllAsRead = tryCatchFn(async (req, res) => {
+  await markAllNotificationsAsReadService(req.user._id, req.app.get("io"));
+
+  res.status(200).json({ status: "success", message: "All marked as read" });
 });
 
-const getUnreadCount = tryCatchFn(async (req, res) => {
-  const userId = req.user._id;
-  const result = await getUnreadCountService(userId);
-  return res.status(200).json(result);
-});
+/* ================= UNREAD COUNT ================= */
+export const getUnreadCount = tryCatchFn(async (req, res) => {
+  const count = await getUnreadCountService(req.user._id);
 
-export {
-  createNotification,
-  getUserNotifications,
-  getNotificationById,
-  markNotificationAsRead,
-  markAllAsRead,
-  deleteNotification,
-  deleteAllNotifications,
-  getUnreadCount,
-};
+  res.status(200).json({
+    status: "success",
+    unreadCount: count,
+  });
+});

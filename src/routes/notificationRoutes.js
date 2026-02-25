@@ -1,6 +1,5 @@
 import express from "express";
 import {
-  createNotification,
   getUserNotifications,
   getNotificationById,
   markNotificationAsRead,
@@ -13,25 +12,22 @@ import { verifyAuth } from "../middleware/authenticate.js";
 
 const router = express.Router();
 
-// Create notification (admin/system)
-router.post("/create", verifyAuth, createNotification);
-
-// Get user notifications
+// Get all notifications for the authenticated user
 router.get("/", verifyAuth, getUserNotifications);
 
-// Get unread count
+// Get unread notifications count
 router.get("/unread/count", verifyAuth, getUnreadCount);
 
-// Get single notification by ID
+// Get a single notification by ID
 router.get("/:id", verifyAuth, getNotificationById);
 
-// Mark single notification as read
+// Mark a single notification as read
 router.patch("/:id/read", verifyAuth, markNotificationAsRead);
 
 // Mark all notifications as read
 router.patch("/mark/all-read", verifyAuth, markAllAsRead);
 
-// Delete single notification
+// Delete a single notification
 router.delete("/:id", verifyAuth, deleteNotification);
 
 // Delete all notifications
