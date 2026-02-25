@@ -97,7 +97,8 @@ export const getUserApplications = async (applicantId, page = 1, limit = 10) => 
 // ------------------------------------------------------------
 export const getApplicationById = async (applicationId, userId, role) => {
   let query = Application.findById(applicationId)
-    .populate("job", "title companyName location jobType requirements");   // no applicant populate
+    .populate("job", "title companyName location jobType requirements")
+    .populate("applicant", "fullname email phone country");
 
   if (role === "admin") {
     query = query.select('+internalNote');

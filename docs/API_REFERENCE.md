@@ -1,467 +1,149 @@
-# WorkNest Backend API Reference 
+# WorkNest API Reference
 
-This document defines the **stable API contract** for the WorkNest backend.
-It is derived directly from the approved backend README and represents the **authoritative agreement** between backend, frontend, and mobile clients.
+Base URL (local): `http://localhost:5000/api/v1`
 
-This document describes **what the backend guarantees**, not how UI behaves.
+## Conventions
 
----
-
-# 1. Global API Conventions
-
-## Base URL
-
-```
-/api
-```
-
-All endpoints documented below are relative to this base path.
+- Most protected routes require `Authorization: Bearer <access_token>`.
+- Refresh tokens are handled via HTTP-only cookies.
+- Some endpoints use multipart form uploads.
 
 ---
 
-## Authentication
+## Auth Routes (`/auth`)
 
-* JWT Bearer authentication
-* Access token required for all protected routes
-* Refresh tokens used to obtain new access tokens
-* Logout invalidates refresh tokens
+### `POST /auth/create`
+Register a new user.
 
-Header:
+### `POST /auth/login`
+Login for applicant users.
 
-```
-Authorization: Bearer <accessToken>
-```
+### `GET /auth/user`
+Get authenticated user profile.
 
----
+### `POST /auth/refresh-token`
+Refresh access token using refresh-token cookie.
 
-## Date & Time Format
+### `PATCH /auth/verify-account`
+Verify account with verification token.
 
-All timestamps are ISO-8601 UTC:
+### `POST /auth/resend/verify-token`
+Resend verification token.
 
-```
-2026-01-24T10:30:15.000Z
-```
+### `POST /auth/forgot-password`
+Start forgot-password flow.
 
----
+### `PATCH /auth/reset-password`
+Reset password with reset token flow payload.
 
-## Pagination (All List Endpoints)
+### `PATCH /auth/update-password`
+Update password for authenticated user.
 
-All list endpoints are paginated.
+### `PATCH /auth/update-user`
+Update user profile fields.
 
-**Query Parameters**
+### `PATCH /auth/upload-avatar`
+Upload user avatar (`multipart/form-data`, field: `avatar`).
 
-* `page` (default: 1)
-* `limit` (default: 20, max: 100)
+### `DELETE /auth/delete-account`
+Delete authenticated user account.
 
-**Response Envelope**
-
-```json
-{
-  "data": [],
-  "meta": {
-    "page": 1,
-    "limit": 20,
-    "total": 320
-  }
-}
-```
+### `POST /auth/logout`
+Logout authenticated user.
 
 ---
 
-## Global Error Envelope
+## Admin Routes (`/admin`)
 
-All errors use the same structure:
+### `POST /admin/login`
+Admin-only login endpoint.
 
-```json
-{
-  "error": {
-    "code": "VALIDATION_ERROR",
-    "message": "Invalid request",
-    "details": ["email is required"]
-  }
-}
-```
+### `GET /admin/profile`
+Get authenticated admin profile.
 
-### Common Error Codes
+### `POST /admin/refresh-token`
+Refresh admin access token.
 
-* `UNAUTHORIZED`
-* `FORBIDDEN`
-* `NOT_FOUND`
-* `VALIDATION_ERROR`
-* `CONFLICT`
-* `RATE_LIMITED`
-* `INTERNAL_ERROR`
+### `PATCH /admin/profile`
+Update admin profile.
 
----
+### `PATCH /admin/upload-avatar`
+Upload admin avatar.
 
-## Rate Limiting Headers
+### `PATCH /admin/profile/password`
+Update admin password.
 
-```
-X-RateLimit-Limit: 100
-X-RateLimit-Remaining: 97
-X-RateLimit-Reset: 1700000000
-```
+### `GET /admin/all`
+Get all users (admin only).
+
+### `DELETE /admin/:id/delete-account`
+Delete a user account by ID (admin only).
+
+### `DELETE /admin/delete-account`
+Delete current admin profile account.
+
+### `POST /admin/logout`
+Logout authenticated admin.
 
 ---
 
-# 2. Authentication Domain
+## Job Routes (`/jobs`)
 
-## POST /auth/register
+### `POST /jobs/create`
+Create a job (admin only, supports avatar upload).
 
-Create a new user account
+### `GET /jobs/all`
+Get all jobs (supports optional authentication).
 
-**Auth:** Public
+### `GET /jobs/:id`
+Get job details by ID.
 
-**Body**
+### `PATCH /jobs/:id/update`
+Update job by ID (admin only).
 
-```json
-{ "email": "user@mail.com", "password": "StrongPass123" }
-```
+### `DELETE /jobs/:id/delete`
+Delete job by ID (admin only).
 
-**Validation Rules**
+### `PATCH /jobs/:jobId/upload-avatar`
+Upload or replace job avatar image.
 
-* Valid email format
-* Password ≥ 8 characters
+### `GET /jobs/saved`
+List saved jobs for authenticated applicant.
 
-**201 Response**
+### `POST /jobs/:id/save`
+Save a job (applicant only).
 
-```json
-{ "message": "Registration successful" }
-```
-
-**Errors**
-
-* `CONFLICT` (email already exists)
-
----
-
-## POST /auth/login
-
-Authenticate user or admin
-
-**Auth:** Public
-
-**Body**
-
-```json
-{ "email": "user@mail.com", "password": "StrongPass123" }
-```
-
-**200 Response**
-
-```json
-{
-  "accessToken": "jwt",
-  "refreshToken": "jwt",
-  "user": { "id": "u1", "role": "USER" }
-}
-```
+### `DELETE /jobs/:id/save`
+Unsave a job (applicant only).
 
 ---
 
-## POST /auth/refresh
+## Application Routes (`/applications`)
 
-Refresh access token
+### `POST /applications/:jobId/apply`
+Apply for a job (`multipart/form-data`, field: `resume`, applicant only).
 
-**Auth:** Refresh token required
+### `GET /applications/me`
+Get current applicant's applications.
 
----
+### `GET /applications/:id`
+Get application details by ID (applicant or admin).
 
-## POST /auth/logout
+### `GET /applications`
+Get all applications (admin only).
 
-Invalidate refresh token
+### `PATCH /applications/:id/status`
+Update application status (admin only).
 
-**Auth:** Required
+### `PATCH /applications/:id/note`
+Update application internal note (admin only).
 
----
-
-# 3. User Profile Domain
-
-## GET /users/me
-
-Return authenticated user profile
-
-**Auth:** Required
-
-**200 Response**
-
-```json
-{
-  "id": "u1",
-  "email": "user@mail.com",
-  "profile": {
-    "name": "John Doe",
-    "phone": "+234...",
-    "avatarUrl": "https://..."
-  }
-}
-```
+### `GET /applications/stats/overview`
+Get application stats overview (admin only).
 
 ---
 
-## PATCH /users/me
+## Contact Routes (`/contact`)
 
-Update profile fields
-
-**Validation Rules**
-
-* name ≤ 100 characters
-* phone must be E.164 format
-
----
-
-## POST /users/me/avatar
-
-Upload avatar image
-
-**Field Name:** `avatar`
-
----
-
-## POST /users/me/resume
-
-Upload resume file
-
-**Field Name:** `resume`
-
----
-
-## GET /users/me/resume
-
-Retrieve resume URL
-
----
-
-# 4. Jobs Domain (Public)
-
-## GET /jobs
-
-List active jobs with search and filters
-
-**Query Parameters**
-
-* `keyword`
-* `location`
-* `type`
-* `salaryMin`
-* `salaryMax`
-
----
-
-## GET /jobs/{jobId}
-
-Get job details
-
-**Errors**
-
-* `NOT_FOUND`
-
----
-
-## GET /jobs/recommended
-
-Get personalized job recommendations
-
-**Auth:** USER
-
----
-
-# 5. Saved Jobs Domain
-
-## POST /jobs/{jobId}/save
-
-Save job
-
-**Auth:** USER
-
-**Errors**
-
-* `CONFLICT` (already saved)
-
----
-
-## DELETE /jobs/{jobId}/save
-
-Remove saved job
-
-**Auth:** USER
-
----
-
-## GET /jobs/saved
-
-List saved jobs
-
-**Auth:** USER
-
----
-
-# 6. Applications Domain
-
-## POST /applications
-
-Submit job application
-
-**Auth:** USER
-
-**Body (multipart/form-data)**
-
-* `jobId`
-* `resume` (file)
-* `coverLetter` (file)
-
-**Validation Rules**
-
-* Job must be `ACTIVE`
-* One application per user per job
-
-**201 Response**
-
-```json
-{ "id": "app1", "status": "PENDING" }
-```
-
-**Errors**
-
-* `JOB_CLOSED`
-* `ALREADY_APPLIED`
-
----
-
-## GET /applications/me
-
-List applications submitted by the authenticated user
-
-**Auth:** USER
-
----
-
-## GET /applications/{id}
-
-Get application status
-
-**Auth:** USER
-
----
-
-# 7. Admin – Jobs Domain
-
-All admin routes require **ADMIN role**.
-
----
-
-## GET /admin/jobs
-
-List all jobs (any status)
-
----
-
-## POST /admin/jobs
-
-Create job
-
-**Body**
-
-```json
-{ "title": "Backend Engineer", "company": "WorkNest", "status": "DRAFT" }
-```
-
----
-
-## PATCH /admin/jobs/{jobId}
-
-Update job details or status
-
-**Allowed Status Values**
-
-* DRAFT
-* ACTIVE
-* CLOSED
-
-> Job lifecycle is enforced server-side.
-> Frontend must rely on backend validation for transitions.
-
----
-
-## DELETE /admin/jobs/{jobId}
-
-Delete job
-
----
-
-# 8. Admin – Applications Domain
-
-## GET /admin/applications
-
-List all applications
-
----
-
-## GET /admin/jobs/{jobId}/applications
-
-List applications for a specific job
-
----
-
-## PATCH /admin/applications/{applicationId}/status
-
-Update application status
-
-**Body**
-
-```json
-{ "status": "INTERVIEW" }
-```
-
-**Allowed Status Values**
-
-* PENDING
-* REVIEWED
-* INTERVIEW
-* OFFER
-* REJECTED
-
-**Errors**
-
-* `INVALID_STATUS_TRANSITION`
-
----
-
-# 9. System Endpoints
-
-## GET /health
-
-Liveness check
-
-**200 Response**
-
-```json
-{ "status": "ok", "service": "worknest-api" }
-```
-
----
-
-# 10. Business Status Codes
-
-| Code                      | Meaning                            |
-| ------------------------- | ---------------------------------- |
-| JOB_CLOSED                | Job no longer accepts applications |
-| ALREADY_APPLIED           | Duplicate application              |
-| INVALID_STATUS_TRANSITION | Workflow violation                 |
-| NOT_JOB_OWNER             | Unauthorized admin access          |
-
----
-
-## Contract Stability Rule
-
-This document defines the **stable API contract**.
-
-Any breaking change requires:
-
-* explicit versioning
-* README update
-* changelog entry
-* frontend/mobile alignment
-
----
-
+### `POST /contact/send`
+Submit contact request.
