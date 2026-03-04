@@ -55,7 +55,7 @@ const authService = {
     if (user.role === "admin") {
       return next(
         errorResponse(
-          "Admins must use the admin login route. Please visit /admin/login.",
+          "Use Admin Route.",
           403
         )
       );
