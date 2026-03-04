@@ -1,5 +1,4 @@
 import Notification from "../models/notification.js";
-import User from "../models/user.js";
 
 /**
  * Create a notification for a single user
