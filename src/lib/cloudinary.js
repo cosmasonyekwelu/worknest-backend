@@ -7,8 +7,6 @@ cloudinary.config({
   secure: true,
 });
 
-console.log(process.env.CLOUDINARY_CLOUD_NAME);
-console.log(process.env.CLOUDINARY_API_KEY);
 
 export const uploadToCloudinary = async (file, options = {}) => {
   try {
@@ -40,7 +38,6 @@ export const uploadToCloudinary = async (file, options = {}) => {
       file,
       defaultOptions,
     );
-    console.log(uploadResponse);
     return {
       url: uploadResponse.secure_url,
       public_id: uploadResponse.public_id,
