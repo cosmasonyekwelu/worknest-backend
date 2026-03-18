@@ -111,9 +111,14 @@ export const getApplicationById = async (applicationId, userId, role) => {
   }
 
   // Authorization: applicant can only view their own applications
-  if (role === "applicant" && application.applicant.toString() !== userId.toString()) {
-    throw new Error("Unauthorized to view this application");
+  if (role === "applicant") {
+  const applicantId = application.applicant?._id?.toString?.() ?? application.applicant?.toString?.();
+  const currentUserId = userId?.toString?.();
+
+  if (!applicantId || !currentUserId || applicantId !== currentUserId) {
+    throw new AppError("Unauthorized to view this application", 403);
   }
+}
 
   return application;   // contains personalInfo
 };
