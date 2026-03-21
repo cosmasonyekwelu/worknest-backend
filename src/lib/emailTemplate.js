@@ -99,7 +99,7 @@ export const resendVerificationTemplate = (name, verificationCode) => `
   `;
 
   
-export const passwordResetTemplate = (name, email, resetToken) => `
+export const passwordResetTemplate = (name, resetToken) => `
   <!DOCTYPE html>
   <html>
   <head>
@@ -132,12 +132,11 @@ export const passwordResetTemplate = (name, email, resetToken) => `
           </div>
           <div class="content">
               <p>Hello ${name},</p>
-              <p>Follow the link to reset your password:</p>
-              <p style="font-weight: bold; font-size: 20px; color:rgb(0, 0, 0);">${
-                process.env.CLIENT_URL
-              }/auth/reset-password?email=${email}&token=${resetToken}</p>
-              <p>Do not share this link with anyone.</p>  
-              <p>This link will expire in 15 minutes.</p>  
+              <p>Use the reset code below to reset your password:</p>
+              <p style="font-weight: bold; font-size: 20px; color:rgb(0, 0, 0);">${resetToken}</p>
+              <p>Submit this code with your email and new password in the reset form.</p>
+              <p>Do not share this code with anyone.</p>
+              <p>This code will expire in 15 minutes.</p>  
               <p>If you did not request a password reset, please ignore this email.</p>   
           </div>
           <div class="footer">

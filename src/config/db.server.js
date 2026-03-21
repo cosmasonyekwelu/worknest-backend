@@ -7,6 +7,8 @@ const dbConnection = {
   maxRetries: 5,
 };
 
+export const isDatabaseReady = () => mongoose.connection?.readyState === 1;
+
 export const connectToDB = async () => {
   if (dbConnection.isConnected) {
     logger.info("✅ Using existing MongoDB connection");
@@ -31,7 +33,7 @@ export const connectToDB = async () => {
   try {
     const conn = await mongoose.connect(
       process.env.MONGO_URI,
-      connectionOptions
+      connectionOptions,
     );
     dbConnection.isConnected = conn.connections[0].readyState === 1;
     dbConnection.retryCount = 0;
@@ -52,7 +54,7 @@ export const connectToDB = async () => {
         if (dbConnection.retryCount < dbConnection.maxRetries) {
           dbConnection.retryCount++;
           logger.info(
-            `ℹ️  Attempting to reconnect (${dbConnection.retryCount}/${dbConnection.maxRetries})...`
+            `ℹ️  Attempting to reconnect (${dbConnection.retryCount}/${dbConnection.maxRetries})...`,
           );
           setTimeout(connectToDB, 5000);
         }
@@ -64,27 +66,36 @@ export const connectToDB = async () => {
       error instanceof Error ? error.message : "Unknown error";
     logger.error(
       `❌ MongoDB connection failed (attempt ${dbConnection.retryCount}/${dbConnection.maxRetries}):`,
-      errorMessage
+      errorMessage,
     );
 
     if (dbConnection.retryCount < dbConnection.maxRetries) {
-      logger.info(`ℹ️  Retrying in 5 seconds...`);
+      logger.info("ℹ️  Retrying in 5 seconds...");
       setTimeout(connectToDB, 5000);
     } else {
-      console.error("❌ Max retries reached. Exiting...");
+      logger.error("❌ Max retries reached. Exiting...");
       process.exit(1);
     }
   }
 };
 
 // Handle graceful shutdown
-export const gracefulShutdown = async () => {
+export const gracefulShutdown = async (server = null) => {
   try {
-    logger.info("\n🛑 Received shutdown signal. Closing server...");
-    // Close MongoDB connection
-    if (mongoose.connection.readyState === 1) {
+    logger.info("🛑 Received shutdown signal. Closing server...");
+
+    if (server) {
+      await new Promise((resolve) => {
+        server.close(() => {
+          logger.info("✅ HTTP server closed");
+          resolve();
+        });
+      });
+    }
+
+    if (mongoose.connection && mongoose.connection.readyState === 1) {
       await mongoose.connection.close();
-      console.log("✅ MongoDB connection closed");
+      logger.info("✅ MongoDB connection closed");
     }
 
     logger.info("✅ Server shutdown complete");
@@ -97,10 +108,12 @@ export const gracefulShutdown = async () => {
 
 // Handle uncaught exceptions
 process.on("uncaughtException", (error) => {
-  logger.error("\n❌ UNCAUGHT EXCEPTION! Shutting down...");
-  logger.error(error.name, error.message);
-  // Attempt to close server gracefully
+  logger.error("❌ UNCAUGHT EXCEPTION! Shutting down...");
+  logger.error(error.name || "Error", error.message || "Unknown error");
+  if (error.stack) {
+    logger.error(error.stack);
+  }
   gracefulShutdown().finally(() => process.exit(1));
 });
 
-connectToDB()
+connectToDB();

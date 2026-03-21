@@ -36,6 +36,35 @@ const applicationSchema = new Schema(
       currentLocation: String, // field name without space
     },
 
+    ai_score: {
+      type: Number,
+      min: 0,
+      max: 100,
+      default: null,
+    },
+    ai_feedback: {
+      type: String,
+      default: "",
+    },
+    interview_questions: [
+      {
+        question: String,
+        answer: { type: String, default: "" },
+        score: { type: Number, min: 0, max: 100, default: null },
+      },
+    ],
+    interview_score: {
+      type: Number,
+      min: 0,
+      max: 100,
+      default: null,
+    },
+    ai_processing_status: {
+      type: String,
+      enum: ["pending", "processing", "failed", "completed"],
+      default: "pending",
+    },
+
     status: {
       type: String,
       enum: [

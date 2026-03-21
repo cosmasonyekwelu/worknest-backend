@@ -1,71 +1,50 @@
+import mongoose from "mongoose";
 import { searchJobService, uploadJobAvatar } from "../services/job.service.js";
 import { deleteFromCloudinary, uploadToCloudinary } from "../lib/cloudinary.js";
-import responseHandler from "../lib/responseHandler.js";
 import tryCatchFn from "../lib/tryCatchFn.js";
+import responseHandler from "../lib/responseHandler.js";
 import Jobs from "../models/jobs.js";
 import User from "../models/user.js";
+import { jobValidation } from "../validation/job.validation.js";
+import { NotFoundError, ValidationError } from "../lib/errors.js";
+import { ZodError } from "zod";
 
 const { successResponse } = responseHandler;
 
-export const uploadJobAvatarController = tryCatchFn(async (req, res, next) => {
+const ensureValid = (schema, payload) => {
+  try {
+    return schema.parse(payload);
+  } catch (error) {
+    if (error instanceof ZodError) {
+      throw new ValidationError(
+        "Validation failed",
+        error.issues.map((i) => ({ message: i.message, path: i.path.join(".") })),
+      );
+    }
+    throw error;
+  }
+};
 
-  const { jobId } = req.params;
+export const uploadJobAvatarController = tryCatchFn(async (req, res) => {
+  const validatedParams = ensureValid(jobValidation.idParam, req.params);
+
+  const { jobId } = validatedParams;
   let avatarPayload = null;
 
   if (req.file) {
     const file = req.file;
-    const dataUri = `data:${file.mimetype};base64,${file.buffer.toString("base64")}`;
-    avatarPayload = dataUri;
+    avatarPayload = `data:${file.mimetype};base64,${file.buffer.toString("base64")}`;
   } else if (req.body?.avatar) {
     avatarPayload = req.body.avatar;
   }
 
-  const updatedJob = await uploadJobAvatar(jobId, avatarPayload, next);
-  if (!updatedJob) return;
+  const updatedJob = await uploadJobAvatar(jobId, avatarPayload);
 
-  return successResponse(
-    res,
-    updatedJob,
-    "Job avatar uploaded successfully",
-    200,
-  );
+  return successResponse(res, updatedJob, "Job avatar uploaded successfully", 200);
 });
 
 const createJobs = tryCatchFn(async (req, res) => {
-  const {
-    title,
-    location,
-    jobType,
-    category,
-    experienceLevel,
-    jobDescription,
-    responsibilities,
-    salaryRange,
-    requirement,
-    benefits,
-    companyName,
-    companyWebsite,
-    avatar,
-    applicationQuestions,
-    status,
-  } = req.body;
-
-  if (
-    !title ||
-    !location ||
-    !jobType ||
-    !category ||
-    !experienceLevel ||
-    !jobDescription ||
-    !responsibilities ||
-    !requirement ||
-    !companyName
-  ) {
-    return res.status(400).json({
-      status: "error",
-      message: "Please provide all required fields",
-    });
-  }
+  const payload = ensureValid(jobValidation.create, req.body);
 
   let avatarUrl = "";
   let avatarId = "";
@@ -90,106 +69,117 @@ const createJobs = tryCatchFn(async (req, res) => {
     avatarId = uploaded.public_id;
   }
 
-  const job = await Jobs.create({
-    title,
-    location,
-    jobType,
-    category,
-    experienceLevel,
-    jobDescription,
-    responsibilities,
-    salaryRange,
-    requirement,
-    benefits,
-    companyName,
-    companyWebsite,
-    avatar: avatarUrl,
-    avatarId,
-    applicationQuestions,
-    status,
-  });
+  const job = await Jobs.create({ ...payload, avatar: avatarUrl, avatarId });
 
-  return res.status(201).json({
-    status: "success",
-    message: "Job created successfully",
-    data: job,
-  });
+  return successResponse(res, job, "Job created successfully", 201);
 });
 
 const getJobs = tryCatchFn(async (req, res) => {
-  const {
-    keyword,
-    location,
-    jobType,
-    category,
-    salaryMin,
-    salaryMax,
-    experienceLevel,
-    salaryRange,
-    status,
-    page,
-    limit,
-  } = req.query;
-
-  const safeLimit = Math.min(Number(limit) || 10, 50);
+  const validatedQuery = ensureValid(jobValidation.search, req.query);
 
   const filters = {
-    keyword,
-    location,
-    jobType,
-    category,
-    salaryMin,
-    salaryMax,
-    status,
-    experienceLevel,
-    salaryRange,
-    page: Number(page) || 1,
-    limit: safeLimit,
+    ...validatedQuery,
     isAdmin: req.user?.role === "admin",
   };
 
-  if (req.user?.role === "admin" && status) {
-    filters.status = status;
-  }
+  const data = await searchJobService(filters);
 
-  const job = await searchJobService(filters);
-
-  return res.status(200).json({
-    status: "success",
-    message: "Jobs fetched successfully",
-    data: job,
-  });
+  return successResponse(res, data, "Jobs fetched successfully", 200);
 });
 
 const getJobById = tryCatchFn(async (req, res) => {
-  const job = await Jobs.findById(req.params.id);
+  const validatedParams = ensureValid(jobValidation.idParam, req.params);
+  const { id } = validatedParams;
 
-  if (!job) {
-    return res.status(404).json({ message: "Job not found" });
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new ValidationError("Invalid job id");
   }
 
-  return res.status(200).json({ status: "success", data: job });
+  const query = { _id: id };
+  if (req.user?.role !== "admin") {
+    query.status = "active";
+  }
+
+  const job = await Jobs.findOne(query);
+
+  if (!job) {
+    throw new NotFoundError("Job not found");
+  }
+
+  const saved = Boolean(
+    req.user?.savedJobs?.some((savedId) => savedId.toString() === id.toString())
+  );
+
+  return successResponse(res, { ...job.toObject(), saved }, "Job fetched successfully", 200);
 });
 
 const updateJob = tryCatchFn(async (req, res) => {
-  const job = await Jobs.findByIdAndUpdate(req.params.id, req.body, {
+  const validatedParams = ensureValid(jobValidation.idParam, req.params);
+  const { id } = validatedParams;
+  const validatedBody = ensureValid(jobValidation.update, req.body);
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new ValidationError("Invalid job id");
+  }
+
+  const allowed = [
+    "title",
+    "location",
+    "jobType",
+    "category",
+    "experienceLevel",
+    "jobDescription",
+    "responsibilities",
+    "salaryRange",
+    "requirement",
+    "benefits",
+    "companyName",
+    "companyWebsite",
+    "applicationQuestions",
+    "status",
+  ];
+
+  const updates = Object.fromEntries(Object.entries(validatedBody).filter(([key]) => allowed.includes(key)));
+
+  const job = await Jobs.findByIdAndUpdate(id, updates, {
     new: true,
+    runValidators: true,
   });
 
   if (!job) {
-    return res.status(404).json({ message: "Job not found" });
+    throw new NotFoundError("Job not found");
   }
 
-  return res
-    .status(200)
-    .json({ status: "success", message: "Job updated successfully" });
+  if (req.file) {
+    const avatarPayload = `data:${req.file.mimetype};base64,${req.file.buffer.toString("base64")}`;
+    const uploaded = await uploadToCloudinary(avatarPayload, {
+      folder: "Worknest/job-avatars",
+      width: 50,
+      height: 50,
+      crop: "fit",
+      format: "webp",
+    });
+    if (job.avatarId) await deleteFromCloudinary(job.avatarId).catch(() => null);
+    job.avatar = uploaded.url;
+    job.avatarId = uploaded.public_id;
+    await job.save();
+  }
+
+  return successResponse(res, job, "Job updated successfully", 200);
 });
 
 const deleteJob = tryCatchFn(async (req, res) => {
-  const job = await Jobs.findById(req.params.id);
+  const validatedParams = ensureValid(jobValidation.idParam, req.params);
+  const { id } = validatedParams;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new ValidationError("Invalid job id");
+  }
+
+  const job = await Jobs.findById(id);
 
   if (!job) {
-    return res.status(404).json({ message: "Job not found" });
+    throw new NotFoundError("Job not found");
   }
 
   if (job.avatarId) {
@@ -197,78 +187,70 @@ const deleteJob = tryCatchFn(async (req, res) => {
   }
   await job.deleteOne();
 
-  return res
-    .status(200)
-    .json({ status: "success", message: "Job deleted successfully" });
+  return successResponse(res, null, "Job deleted successfully", 200);
 });
 
 const saveJobs = tryCatchFn(async (req, res) => {
-  const userId = req.user._id;
-  const jobId = req.params.id;
+  const userId = req.user?._id;
+  const validatedParams = ensureValid(jobValidation.idParam, req.params);
+  const jobId = validatedParams.id;
 
-  const job = await Jobs.findById(jobId);
-  if (!job) {
-    return res.status(404).json({ message: "Job not found" });
+  if (!userId) {
+    throw new ValidationError("User not found in request");
   }
 
-  const user = await User.findById(userId);
+  const [job, user] = await Promise.all([Jobs.findById(jobId), User.findById(userId)]);
 
-  if (!user.savedJobs.includes(jobId)) {
-    user.savedJobs.push(jobId);
-    await user.save();
-  }
+  if (!job) throw new NotFoundError("Job not found");
+  if (!user) throw new NotFoundError("User not found");
 
-  return res.status(200).json({
-    status: "success",
-    message: "Job saved successfully",
-  });
+  await User.findByIdAndUpdate(userId, { $addToSet: { savedJobs: jobId } }, { new: true });
+
+  return successResponse(res, null, "Job saved successfully", 200);
 });
 
 const unsaveJob = tryCatchFn(async (req, res) => {
-  const userId = req.user._id;
-  const jobId = req.params.id;
+  const userId = req.user?._id;
+  const validatedParams = ensureValid(jobValidation.idParam, req.params);
+  const jobId = validatedParams.id;
+
+  if (!userId) {
+    throw new ValidationError("User not found in request");
+  }
 
   const user = await User.findById(userId);
+  if (!user) throw new NotFoundError("User not found");
 
-  user.savedJobs = user.savedJobs.filter(
-    (id) => id.toString() !== jobId.toString(),
-  );
-  await user.save();
+  await User.findByIdAndUpdate(userId, { $pull: { savedJobs: jobId } }, { new: true });
 
-  return res.status(200).json({
-    status: "success",
-    message: "Job unsaved successfully",
-  });
+  return successResponse(res, null, "Job unsaved successfully", 200);
 });
 
 const getSavedJobs = tryCatchFn(async (req, res) => {
+  const query = ensureValid(jobValidation.saved, req.query);
+
   const userId = req.user._id;
-
-  const page = Number(req.query.page) || 1;
-  let limit = Number(req.query.limit) || 10;
-
-  if (limit > 50) limit = 50;
-
+  const page = query.page;
+  const limit = query.limit;
   const skip = (page - 1) * limit;
 
   const user = await User.findById(userId).select("savedJobs");
+  if (!user) throw new NotFoundError("User not found");
 
   const total = user.savedJobs.length;
   const totalPages = Math.ceil(total / limit);
 
   await user.populate({
     path: "savedJobs",
-    options: { skip, limit, sort: { created: -1 } },
+    options: { skip, limit, sort: { createdAt: -1 } },
   });
 
-  return res.status(200).json({
-    status: "success",
-    message: "Saved jobs fetched successfully",
-    data: user.savedJobs,
-    total,
-    page,
-    totalPages,
-  });
+  return successResponse(res, {
+      jobs: user.savedJobs,
+      total,
+      page,
+      totalPages,
+    }, "Saved jobs fetched successfully", 200);
 });
 
 export {

@@ -1,4 +1,5 @@
 import tryCatchFn from "../lib/tryCatchFn.js";
+import responseHandler from "../lib/responseHandler.js";
 import {
   createApplication,
   getUserApplications,
@@ -6,74 +7,76 @@ import {
   getAllApplications as getAllApplicationsService,
   updateApplicationStatus as updateApplicationStatusService,
   updateInternalNote as updateInternalNoteService,
-  getApplicationStats as getApplicationStatsService
+  getApplicationStats as getApplicationStatsService,
+  processNewApplication,
+  submitInterviewAnswers,
+  updateApplicationPersonalInfo,
 } from "../services/application.service.js";
 
 import { uploadToCloudinary } from "../lib/cloudinary.js";
 import { createNotification, createBulkNotifications } from "../services/notification.service.js";
 import User from "../models/user.js";
-import Jobs from "../models/jobs.js"; // Needed to fetch job details if not already available
+import Jobs from "../models/jobs.js";
+import logger from "../config/logger.js";
+import { ValidationError, NotFoundError } from "../lib/errors.js";
+
+const { successResponse } = responseHandler;
 
 // Apply for a job
 export const applyForJob = tryCatchFn(async (req, res) => {
   const { jobId } = req.params;
   const applicantId = req.user._id;
 
-  // 1. Validate file
   if (!req.file) {
-    return res.status(400).json({ status: "error", message: "Resume file is required" });
+    throw new ValidationError("Resume file is required");
   }
 
-  // 2. Upload to Cloudinary
-  const fileBase64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+  const fileBase64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString("base64")}`;
   let uploadResult;
   try {
     uploadResult = await uploadToCloudinary(fileBase64, {
-      folder: 'Worknest/resumes',
+      folder: "Worknest/resumes",
       public_id: `${applicantId}_${Date.now()}`,
     });
   } catch (error) {
-    console.error('Cloudinary upload error:', error);
-    return res.status(500).json({ status: "error", message: "Failed to upload resume. Please try again." });
+    logger.error("Cloudinary upload error", { error: error.message });
+    throw new Error("Failed to upload resume. Please try again.");
   }
 
-  // 3. Parse and validate request body
   const { portfolioUrl, linkedinUrl, answers, personalInfo } = req.body;
 
-  // Parse answers
   let parsedAnswers = answers;
-  if (typeof answers === 'string') {
+  if (typeof answers === "string") {
     try {
       parsedAnswers = JSON.parse(answers);
-    } catch (e) {
-      return res.status(400).json({ status: "error", message: "Invalid answers format. Must be a valid JSON array." });
+    } catch {
+      throw new ValidationError("Invalid answers format. Must be a valid JSON array.");
     }
   }
 
-  // Parse and validate personalInfo
   if (!personalInfo) {
-    return res.status(400).json({ status: "error", message: "Personal information is required" });
+    throw new ValidationError("Personal information is required");
   }
+
   let parsedPersonalInfo;
   try {
-    parsedPersonalInfo = JSON.parse(personalInfo);
-    const required = ['firstname', 'lastname', 'email'];
+    parsedPersonalInfo = typeof personalInfo === "string" ? JSON.parse(personalInfo) : personalInfo;
+    const required = ["firstname", "lastname", "email"];
     for (const field of required) {
       if (!parsedPersonalInfo[field]?.trim()) {
-        throw new Error(`${field} is required`);
+        throw new ValidationError(`${field} is required`);
       }
     }
-  } catch (e) {
-    return res.status(400).json({ status: "error", message: "Invalid personalInfo format or missing required fields" });
+  } catch (error) {
+    if (error instanceof ValidationError) throw error;
+    throw new ValidationError("Invalid personalInfo format or missing required fields");
   }
 
-  // 4. Fetch job details (for notifications)
   const job = await Jobs.findById(jobId).select("title companyName");
   if (!job) {
-    return res.status(404).json({ status: "error", message: "Job not found" });
+    throw new NotFoundError("Job not found");
   }
 
-  // 5. Create application
   const application = await createApplication(
     applicantId,
     jobId,
@@ -86,42 +89,43 @@ export const applyForJob = tryCatchFn(async (req, res) => {
     }
   );
 
-  // 6. Populate job details for response
   const populatedApplication = await application.populate("job", "title companyName location");
 
-  // 7.  Send notifications (fire and forget – but we await to ensure they are logged)
-  try {
-    // Notify applicant
-    await createNotification(
-      applicantId,
-      'application_submitted',
-      'Application Submitted',
-      `You have successfully applied for "${job.title}" at ${job.companyName}.`,
-      { jobId: job._id, applicationId: application._id }
-    );
-
-    // Notify all admins
-    const admins = await User.find({ role: 'admin' }).select('_id');
-    if (admins.length > 0) {
-      await createBulkNotifications(
-        admins.map(a => a._id),
-        'new_application_admin',
-        'New Application Received',
-        `${req.user.fullname} applied for "${job.title}" at ${job.companyName}.`,
-        { jobId: job._id, applicationId: application._id, applicantId }
-      );
+  process.nextTick(async () => {
+    try {
+      await processNewApplication(application._id, applicantId);
+    } catch (error) {
+      logger.error("Automatic AI processing failed for new application", {
+        applicationId: application._id,
+        error: error.message,
+      });
     }
-  } catch (notifError) {
-    // Log but don't fail the request – notifications are non-critical
-    console.error("Failed to send notifications:", notifError);
-  }
 
-  // 8. Return success response
-  return res.status(201).json({
-    status: "success",
-    message: "Application submitted successfully",
-    data: populatedApplication,
+    try {
+      await createNotification(
+        applicantId,
+        "application_submitted",
+        "Application Submitted",
+        `You have successfully applied for "${job.title}" at ${job.companyName}.`,
+        { jobId: job._id, applicationId: application._id }
+      );
+
+      const admins = await User.find({ role: "admin" }).select("_id");
+      if (admins.length > 0) {
+        await createBulkNotifications(
+          admins.map((a) => a._id),
+          "new_application_admin",
+          "New Application Received",
+          `${req.user.fullname} applied for "${job.title}" at ${job.companyName}.`,
+          { jobId: job._id, applicationId: application._id, applicantId }
+        );
+      }
+    } catch (notifError) {
+      logger.error("Failed to send notifications", { error: notifError.message });
+    }
   });
+
+  return successResponse(res, populatedApplication, "Application submitted successfully", 201);
 });
 
 // Get user's applications
@@ -134,11 +138,7 @@ export const getMyApplications = tryCatchFn(async (req, res) => {
 
   const applications = await getUserApplications(applicantId, pageNum, limitNum);
 
-  return res.status(200).json({
-    status: "success",
-    message: "Applications retrieved successfully",
-    ...applications,
-  });
+  return successResponse(res, applications, "Applications retrieved successfully", 200);
 });
 
 // Get single application
@@ -149,10 +149,7 @@ export const getApplication = tryCatchFn(async (req, res) => {
 
   const application = await getApplicationById(id, userId, userRole);
 
-  return res.status(200).json({
-    status: "success",
-    data: application,
-  });
+  return successResponse(res, application, "Application retrieved successfully", 200);
 });
 
 // Admin: Get all applications
@@ -175,11 +172,7 @@ export const getAllApplications = tryCatchFn(async (req, res) => {
 
   const applications = await getAllApplicationsService(filters, pageNum, limitNum);
 
-  return res.status(200).json({
-    status: "success",
-    message: "Applications retrieved successfully",
-    ...applications,
-  });
+  return successResponse(res, applications, "Applications retrieved successfully", 200);
 });
 
 // Admin: Update application status
@@ -189,16 +182,12 @@ export const updateApplicationStatus = tryCatchFn(async (req, res) => {
   const adminId = req.user._id;
 
   if (!status || !status.trim()) {
-    return res.status(400).json({ status: "error", message: "Status is required" });
+    throw new ValidationError("Status is required");
   }
 
   const application = await updateApplicationStatusService(id, status.trim(), adminId, note?.trim());
 
-  return res.status(200).json({
-    status: "success",
-    message: `Application status updated to ${status}`,
-    data: application,
-  });
+  return successResponse(res, application, `Application status updated to ${status}`, 200);
 });
 
 // Admin: Update internal note
@@ -207,16 +196,41 @@ export const updateInternalNote = tryCatchFn(async (req, res) => {
   const { note } = req.body;
 
   if (!note || note.trim() === "") {
-    return res.status(400).json({ status: "error", message: "Note cannot be empty" });
+    throw new ValidationError("Note cannot be empty");
   }
 
   const application = await updateInternalNoteService(id, note.trim());
 
-  return res.status(200).json({
-    status: "success",
-    message: "Internal note updated successfully",
-    data: application,
-  });
+  return successResponse(res, application, "Internal note updated successfully", 200);
+});
+
+export const triggerManualAIReview = tryCatchFn(async (req, res) => {
+  const { id } = req.params;
+  const adminId = req.user._id;
+
+  const application = await processNewApplication(id, adminId);
+
+  return successResponse(res, application, "AI review completed", 200);
+});
+
+export const submitInterview = tryCatchFn(async (req, res) => {
+  const { id } = req.params;
+  const applicantId = req.user._id;
+  const { answers } = req.body;
+
+  const application = await submitInterviewAnswers(id, applicantId, answers);
+
+  return successResponse(res, application, "Interview submitted and scored", 200);
+});
+
+export const updatePersonalInfo = tryCatchFn(async (req, res) => {
+  const { id } = req.params;
+  const adminId = req.user._id;
+  const { personalInfo } = req.body;
+
+  const application = await updateApplicationPersonalInfo(id, adminId, personalInfo);
+
+  return successResponse(res, application, "Personal info updated", 200);
 });
 
 // Get application statistics
@@ -225,8 +239,5 @@ export const getApplicationStats = tryCatchFn(async (req, res) => {
 
   const stats = await getApplicationStatsService(jobId);
 
-  return res.status(200).json({
-    status: "success",
-    data: stats,
-  });
+  return successResponse(res, stats, "Application statistics retrieved successfully", 200);
 });

@@ -73,14 +73,15 @@ MONGO_URI=mongodb+srv://<user>:<password>@cluster0.mongodb.net
 
 # Auth
 JWT_SECRET_KEY=your_secret_key
+JWT_ACCESS_SECRET_KEY=your_access_secret
+JWT_REFRESH_SECRET_KEY=your_refresh_secret
 JWT_ACCESS_TOKEN_EXPIRES=15m
 JWT_REFRESH_TOKEN_EXPIRES=7d
 
-# Email (SMTP)
-EMAIL_HOST=smtp.gmail.com
-EMAIL_PORT=587
-EMAIL_USER=ourworknest@email.com
-EMAIL_PASSWORD=your_app_password
+# Email (Brevo)
+BREVO_API_KEY=your_brevo_api_key
+BREVO_SENDER_EMAIL=no-reply@yourdomain.com
+BREVO_SENDER_NAME=Worknest
 
 # File Uploads (Cloudinary)
 CLOUDINARY_CLOUD_NAME=xxxx

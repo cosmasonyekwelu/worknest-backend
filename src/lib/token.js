@@ -1,21 +1,33 @@
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
+import crypto from "crypto";
+import { getJwtSecrets } from "../config/env.js";
 
 dotenv.config();
 
-export const signToken = (id) => {
-  const accessToken = jwt.sign({ id }, process.env.JWT_SECRET_KEY, {
+export const signToken = (id, tokenVersion = 0) => {
+  const { accessSecret, refreshSecret } = getJwtSecrets();
+  const refreshJti = crypto.randomUUID();
+  const accessToken = jwt.sign(
+    { id, tokenType: "access", tokenVersion },
+    accessSecret,
+    {
     expiresIn: process.env.JWT_ACCESS_TOKEN_EXPIRES,
-  });
-  const refreshToken = jwt.sign({ id }, process.env.JWT_SECRET_KEY, {
+    },
+  );
+  const refreshToken = jwt.sign(
+    { id, tokenType: "refresh", tokenVersion, jti: refreshJti },
+    refreshSecret,
+    {
     expiresIn: process.env.JWT_REFRESH_TOKEN_EXPIRES,
-  });
+    },
+  );
   return { accessToken, refreshToken };
 };
 
-export const createSendToken = (user) => {
+export const createSendToken = (user, tokenVersion = 0) => {
   if (!user) return;
-  const token = signToken(user._id); //this is from mongodb id doc
+  const token = signToken(user._id, tokenVersion); //this is from mongodb id doc
   //create cookie to store our refreshToken in order to prevent browser access on client
   const isProduction = process.env.NODE_ENV === "production";
   const cookieOptions = {
@@ -32,9 +44,9 @@ export const createSendToken = (user) => {
   };
 };
 
-export const createAdminSendToken = (user) => {
+export const createAdminSendToken = (user, tokenVersion = 0) => {
   if (!user) return;
-  const token = signToken(user._id); //this is from mongodb id doc
+  const token = signToken(user._id, tokenVersion); //this is from mongodb id doc
   //create cookie to store our refreshToken in order to prevent browser access on client
   const isProduction = process.env.NODE_ENV === "production";
   const cookieOptions = {
@@ -50,4 +62,3 @@ export const createAdminSendToken = (user) => {
     cookieOptions,
   };
 };
-

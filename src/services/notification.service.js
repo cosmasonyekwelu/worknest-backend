@@ -1,89 +1,81 @@
 import Notification from "../models/notification.js";
+import { NotFoundError } from "../lib/errors.js";
 
-/**
- * Create a notification for a single user
- */
 export const createNotification = async (recipientId, type, title, message, data = {}) => {
-  const notification = await Notification.create({
-    recipient: recipientId,
-    type,
-    title,
-    message,
-    data,
-  });
-  return notification;
+  return Notification.create({ recipient: recipientId, type, title, message, data });
 };
 
-/**
- * Create notifications for multiple users (e.g., all admins)
- */
 export const createBulkNotifications = async (recipientIds, type, title, message, data = {}) => {
-  const notifications = recipientIds.map((recipientId) => ({
-    recipient: recipientId,
-    type,
-    title,
-    message,
-    data,
-  }));
-  return await Notification.insertMany(notifications);
+  if (!recipientIds?.length) return [];
+
+  const batchSize = 100;
+  const inserted = [];
+
+  for (let i = 0; i < recipientIds.length; i += batchSize) {
+    const chunk = recipientIds.slice(i, i + batchSize).map((recipientId) => ({
+      recipient: recipientId,
+      type,
+      title,
+      message,
+      data,
+    }));
+
+    const result = await Notification.insertMany(chunk);
+    inserted.push(...result);
+  }
+
+  return inserted;
 };
 
-/**
- * Get paginated notifications for a user
- */
-export const getUserNotifications = async (userId, page = 1, limit = 20, unreadOnly = false) => {
-  const safeLimit = Math.min(Math.max(1, limit), 100);
-  const skip = (page - 1) * safeLimit;
+export const getUserNotifications = async (userId, page = 1, limit = 20, isRead) => {
+  const safeLimit = Math.min(Math.max(1, Number(limit)), 100);
+  const safePage = Math.max(1, Number(page));
+  const skip = (safePage - 1) * safeLimit;
   const query = { recipient: userId };
-  if (unreadOnly) query.read = false;
 
-  const [notifications, total] = await Promise.all([
-    Notification.find(query)
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(safeLimit)
-      .lean(),
+  if (typeof isRead === "boolean") {
+    query.read = isRead;
+  }
+
+  const [notifications, total, unreadCount] = await Promise.all([
+    Notification.find(query).sort({ createdAt: -1 }).skip(skip).limit(safeLimit).lean(),
     Notification.countDocuments(query),
+    Notification.countDocuments({ recipient: userId, read: false }),
   ]);
 
   return {
     data: notifications,
     total,
-    page,
+    page: safePage,
     totalPages: Math.ceil(total / safeLimit),
-    unreadCount: unreadOnly ? total : await Notification.countDocuments({ recipient: userId, read: false }),
+    unreadCount,
   };
 };
 
-/**
- * Mark a single notification as read (ownership check)
- */
+export const getUnreadCount = async (userId) => {
+  return Notification.countDocuments({ recipient: userId, read: false });
+};
+
 export const markAsRead = async (notificationId, userId) => {
   const notification = await Notification.findOneAndUpdate(
     { _id: notificationId, recipient: userId, read: false },
     { read: true, readAt: new Date() },
-    { new: true }
+    { new: true },
   );
-  if (!notification) throw new Error("Notification not found or already read");
+  if (!notification) throw new NotFoundError("Notification not found");
   return notification;
 };
 
-/**
- * Mark all notifications for a user as read
- */
 export const markAllAsRead = async (userId) => {
   const result = await Notification.updateMany(
     { recipient: userId, read: false },
-    { read: true, readAt: new Date() }
+    { read: true, readAt: new Date() },
   );
   return { modifiedCount: result.modifiedCount };
 };
 
-/**
- * Delete a notification (optional cleanup)
- */
 export const deleteNotification = async (notificationId, userId) => {
   const notification = await Notification.findOneAndDelete({ _id: notificationId, recipient: userId });
-  if (!notification) throw new Error("Notification not found");
+  if (!notification) throw new NotFoundError("Notification not found");
   return notification;
 };

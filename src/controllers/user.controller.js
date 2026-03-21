@@ -4,9 +4,8 @@ import responseHandler from "../lib/responseHandler.js";
 
 const { successResponse } = responseHandler;
 
-export const forgotPassword = tryCatchFn(async (req, res, next) => {
-  const user = await userService.forgotPassword(req, next);
-  if (!user) return;
+export const forgotPassword = tryCatchFn(async (req, res) => {
+  await userService.forgotPassword(req);
   return successResponse(
     res,
     null,
@@ -15,7 +14,7 @@ export const forgotPassword = tryCatchFn(async (req, res, next) => {
   );
 });
 
-export const uploadAvatar = tryCatchFn(async (req, res, next) => {
+export const uploadAvatar = tryCatchFn(async (req, res) => {
   const { id: userId } = req.user;
   let avatarPayload = null;
   if (req.file) {
@@ -26,28 +25,21 @@ export const uploadAvatar = tryCatchFn(async (req, res, next) => {
     avatarPayload = req.body.avatar;
   }
 
-  const user = await userService.uploadAvatar(userId, avatarPayload, next);
+  const user = await userService.uploadAvatar(userId, avatarPayload);
   return successResponse(res, user, "Image uploaded successfully", 200);
 });
 
-export const resetPassword = tryCatchFn(async (req, res, next) => {
-  const email = req.query.email || "";
-  const passwordResetToken = req.query.token || "";
-  const responseData = await userService.resetPassword(
-    { ...req.body, email, passwordResetToken },
-    next
-  );
-  if (!responseData) return;
+export const resetPassword = tryCatchFn(async (req, res) => {
+  await userService.resetPassword(req.body);
   return successResponse(res, null, "Password reset successfully", 200);
 });
 
 
-export const updateUserPassword = tryCatchFn(async (req, res, next) => {
+export const updateUserPassword = tryCatchFn(async (req, res) => {
   const { id: userId } = req.user;
   const responseData = await userService.updateUserPassword(
     userId,
-    req.body,
-    next
+    req.body
   );
   return successResponse(
     res,
@@ -57,10 +49,9 @@ export const updateUserPassword = tryCatchFn(async (req, res, next) => {
   );
 });
 
-export const updateUser = tryCatchFn(async (req, res, next) => {
+export const updateUser = tryCatchFn(async (req, res) => {
   const { id: userId } = req.user;
-  const responseData = await userService.updateUser(userId, req.body, next);
-  if (!responseData) return;
+  const responseData = await userService.updateUser(userId, req.body);
   return successResponse(
     res,
     responseData,
@@ -69,9 +60,9 @@ export const updateUser = tryCatchFn(async (req, res, next) => {
   );
 });
 
-export const deleteAccount = tryCatchFn(async (req, res, next) => {
+export const deleteAccount = tryCatchFn(async (req, res) => {
   const { id: userId } = req.user;
-  const responseData = await userService.deleteAccount(userId, next);
+  const responseData = await userService.deleteAccount(userId);
   return successResponse(
     res,
     responseData,

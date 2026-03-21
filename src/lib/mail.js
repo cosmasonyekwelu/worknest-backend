@@ -1,3 +1,5 @@
+import logger from "../config/logger.js";
+
 // brevoEmail.js (ESM)
 // Switches Nodemailer -> Brevo Transactional Email API (REST)
 //
@@ -10,10 +12,9 @@ const BREVO_BASE_URL = "https://api.brevo.com/v3";
 const BREVO_API_KEY = process.env.BREVO_API_KEY;
 
 // Prefer a verified sender/domain in Brevo (recommended for deliverability).
-// Keep your old default as fallback only.
 const DEFAULT_SENDER = {
-  email: process.env.BREVO_SENDER_EMAIL || "worknestnig@gmail.com",
-  name: process.env.BREVO_SENDER_NAME || "Worknest",
+  email: process.env.BREVO_SENDER_EMAIL,
+  name: process.env.BREVO_SENDER_NAME,
 };
 
 let emailVerified = false;
@@ -127,9 +128,9 @@ export async function verifyEmailConnection() {
       // GET /v3/account validates your API key and returns account details :contentReference[oaicite:4]{index=4}
       await requestBrevo("/account", { method: "GET" });
       emailVerified = true;
-      console.log("Brevo email service connection verified");
+      logger.info("Brevo email service connection verified");
     } catch (error) {
-      console.error("Failed to connect to Brevo email service", {
+      logger.error("Failed to connect to Brevo email service", {
         error: redactError(error),
         // In dev you can inspect error.body if needed, but be careful not to log secrets.
         body: process.env.NODE_ENV === "development" ? error?.body : undefined,
@@ -179,7 +180,7 @@ export async function sendEmail({
     });
     return res; // usually includes { messageId } :contentReference[oaicite:6]{index=6}
   } catch (error) {
-    console.error("Error sending email (Brevo):", {
+    logger.error("Error sending email (Brevo)", {
       error: redactError(error),
       body: process.env.NODE_ENV === "development" ? error?.body : undefined,
     });

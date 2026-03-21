@@ -31,3 +31,12 @@ export const refreshTokenLimit = rateLimit({
   legacyHeaders: false, //disable X-RateLimit headers
   // trustProxy: true, //trust the X-Forwarded-For header
 });
+
+export const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 300,
+  message: "Too many requests, please try again later",
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => `${ipKeyGenerator(req.ip)}-${req.headers["user-agent"] || "unknown-user-agent"}` ,
+});

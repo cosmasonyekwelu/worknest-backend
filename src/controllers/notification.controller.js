@@ -1,73 +1,74 @@
-import tryCatchFn from "../lib/tryCatchFn.js";
 import {
   getUserNotifications,
   markAsRead,
   markAllAsRead,
   deleteNotification,
+  getUnreadCount as getUnreadCountService,
 } from "../services/notification.service.js";
+import { notificationValidation } from "../validation/notification.validation.js";
+import { ValidationError } from "../lib/errors.js";
+import tryCatchFn from "../lib/tryCatchFn.js";
+import responseHandler from "../lib/responseHandler.js";
+import { ZodError } from "zod";
 
-// Get user's notifications (paginated)
+const { successResponse } = responseHandler;
+
+const ensureValid = (schema, payload) => {
+  if (!schema) return payload;
+
+  if (typeof schema.parse === "function") {
+    try {
+      return schema.parse(payload);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        throw new ValidationError(
+          "Validation failed",
+          error.issues.map((issue) => ({ message: issue.message, path: issue.path.join(".") })),
+        );
+      }
+      throw error;
+    }
+  }
+
+  return payload;
+};
+
 export const getNotifications = tryCatchFn(async (req, res) => {
   const userId = req.user._id;
-  const { page = 1, limit = 20, unreadOnly = false } = req.query;
+  const query = ensureValid(notificationValidation.query, req.query);
 
-  const pageNum = Math.max(1, Number(page));
-  const limitNum = Math.min(Math.max(1, Number(limit)), 100);
-  const unreadFilter = unreadOnly === "true" || unreadOnly === true;
+  const result = await getUserNotifications(userId, query.page, query.limit, query.isRead);
 
-  const result = await getUserNotifications(userId, pageNum, limitNum, unreadFilter);
-
-  res.status(200).json({
-    status: "success",
-    ...result,
-  });
+  return successResponse(res, result, "Notifications retrieved successfully", 200);
 });
 
-// Get unread count only
 export const getUnreadCount = tryCatchFn(async (req, res) => {
   const userId = req.user._id;
-  const { unreadCount } = await getUserNotifications(userId, 1, 1, true);
-  res.status(200).json({
-    status: "success",
-    unreadCount,
-  });
+  const unreadCount = await getUnreadCountService(userId);
+  return successResponse(res, { unreadCount }, "Unread count retrieved successfully", 200);
 });
 
-// Mark a single notification as read
 export const markNotificationRead = tryCatchFn(async (req, res) => {
-  const { id } = req.params;
+  const { id } = ensureValid(notificationValidation.idParam, req.params);
   const userId = req.user._id;
 
   const notification = await markAsRead(id, userId);
 
-  res.status(200).json({
-    status: "success",
-    message: "Notification marked as read",
-    data: notification,
-  });
+  return successResponse(res, notification, "Notification marked as read", 200);
 });
 
-// Mark all notifications as read
 export const markAllRead = tryCatchFn(async (req, res) => {
   const userId = req.user._id;
   const result = await markAllAsRead(userId);
 
-  res.status(200).json({
-    status: "success",
-    message: "All notifications marked as read",
-    modifiedCount: result.modifiedCount,
-  });
+  return successResponse(res, result, "All notifications marked as read", 200);
 });
 
-// Delete a notification
 export const deleteNotificationCtrl = tryCatchFn(async (req, res) => {
-  const { id } = req.params;
+  const { id } = ensureValid(notificationValidation.idParam, req.params);
   const userId = req.user._id;
 
   await deleteNotification(id, userId);
 
-  res.status(200).json({
-    status: "success",
-    message: "Notification deleted",
-  });
+  return successResponse(res, null, "Notification deleted", 200);
 });

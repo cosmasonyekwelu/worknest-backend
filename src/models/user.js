@@ -17,6 +17,9 @@ const userSchema = new Schema(
     },
     country: {
       type: String,
+      trim: true,
+      minlength: 2,
+      maxlength: 80,
     },
     password: {
       type: String,
@@ -28,10 +31,18 @@ const userSchema = new Schema(
     },
     phone: {
       type: String,
+      trim: true,
+      minlength: 5,
+      maxlength: 25,
     },
     avatar: {
       type: String,
+      trim: true,
       default: "",
+      validate: {
+        validator: (value) => !value || /^https?:\/\//i.test(value),
+        message: "Must be a valid URL",
+      },
     },
     avatarId: {
       type: String,
@@ -67,6 +78,19 @@ const userSchema = new Schema(
       type: Date,
       select: false,
     },
+    refreshTokenHash: {
+      type: String,
+      select: false,
+    },
+    refreshTokenExpiresAt: {
+      type: Date,
+      select: false,
+    },
+    tokenVersion: {
+      type: Number,
+      default: 0,
+      select: false,
+    },
     isCompletedOnboard: {
       type: Boolean,
       default: false,
@@ -84,6 +108,10 @@ const userSchema = new Schema(
     timestamps: true,
   },
 );
+
+userSchema.index({ fullname: "text", role: "text", email: "text" });
+userSchema.index({ role: 1 });
+userSchema.index({ createdAt: -1 });
 
 const User = mongoose.models.User || model("User", userSchema);
 export default User;

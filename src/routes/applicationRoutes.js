@@ -7,67 +7,99 @@ import {
   updateApplicationStatus,
   updateInternalNote,
   getApplicationStats,
+  triggerManualAIReview,
+  submitInterview,
+  updatePersonalInfo,
 } from "../controllers/application.controller.js";
 import { authorizedRoles, verifyAuth } from "../middleware/authenticate.js";
-
-import upload from "../middleware/upload.js"; // Import your custom upload middleware
+import { validateRequest } from "../middleware/validateRequest.js";
+import { applicationValidation } from "../validation/application.validation.js";
+import upload from "../middleware/upload.js";
 
 const router = express.Router();
 
-// Applicant routes
 router.post(
   "/:jobId/apply",
   verifyAuth,
   authorizedRoles("applicant"),
-  upload.single('resume'), // Use upload middleware
-  applyForJob
+  validateRequest(applicationValidation.idParam, "params"),
+  upload.single("resume"),
+  applyForJob,
 );
-
-// Get current user's applications
 
 router.get(
   "/me",
   verifyAuth,
   authorizedRoles("applicant"),
-  getMyApplications
+  validateRequest(applicationValidation.paginationQuery, "query"),
+  getMyApplications,
 );
 
-// Application stats overview
 router.get(
   "/stats/overview",
   verifyAuth,
   authorizedRoles("admin"),
-  getApplicationStats
+  getApplicationStats,
 );
 
-// Get application by ID
+router.post(
+  "/:id/submit-interview",
+  verifyAuth,
+  authorizedRoles("applicant"),
+  validateRequest(applicationValidation.idParam, "params"),
+  validateRequest(applicationValidation.submitInterview),
+  submitInterview,
+);
+
+router.post(
+  "/:id/ai-review",
+  verifyAuth,
+  authorizedRoles("admin"),
+  validateRequest(applicationValidation.idParam, "params"),
+  triggerManualAIReview,
+);
+
+router.put(
+  "/:id/personal-info",
+  verifyAuth,
+  authorizedRoles("admin"),
+  validateRequest(applicationValidation.idParam, "params"),
+  validateRequest(applicationValidation.personalInfoUpdate),
+  updatePersonalInfo,
+);
+
 router.get(
   "/:id",
   verifyAuth,
   authorizedRoles("applicant", "admin"),
-  getApplication
+  validateRequest(applicationValidation.idParam, "params"),
+  getApplication,
 );
 
-// Admin routes
 router.get(
   "/",
   verifyAuth,
   authorizedRoles("admin"),
-  getAllApplications
+  validateRequest(applicationValidation.adminQuery, "query"),
+  getAllApplications,
 );
 
 router.patch(
   "/:id/status",
   verifyAuth,
   authorizedRoles("admin"),
-  updateApplicationStatus
+  validateRequest(applicationValidation.idParam, "params"),
+  validateRequest(applicationValidation.statusUpdate),
+  updateApplicationStatus,
 );
 
 router.patch(
   "/:id/note",
   verifyAuth,
   authorizedRoles("admin"),
-  updateInternalNote
+  validateRequest(applicationValidation.idParam, "params"),
+  validateRequest(applicationValidation.noteUpdate),
+  updateInternalNote,
 );
 
 export default router;

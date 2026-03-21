@@ -1,17 +1,8 @@
-
-
 export const compressionOptions = {
-  // Level of compression (0-9, where 9 is maximum compression)
-  level: 9, // High compression level for text-based responses
-
-  // Filter function to decide which responses to compress
+  level: 9,
   filter: (req, res) => {
-    // Don't compress responses with this header
-    if (req.headers["x-no-compression"]) {
-      return false;
-    }
+    if (req.headers["x-no-compression"]) return false;
 
-    // Only compress responses with these content types
     const type = res.getHeader("Content-Type");
     const shouldCompress = ![
       "image/jpeg",
@@ -26,44 +17,35 @@ export const compressionOptions = {
 
     return shouldCompress;
   },
-
-  // Chunk size for compression (default: 16KB)
   chunkSize: 16384,
-
-  // Threshold (in bytes) for response body size before compression is considered
-  // Responses smaller than this will not be compressed
-  threshold: 1024, // 1KB
+  threshold: 1024,
 };
+
+const isDevelopment = process.env.NODE_ENV === "development";
 
 export const helmetOptions = {
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"], // Be more restrictive in production
+      scriptSrc: isDevelopment ? ["'self'", "'unsafe-inline'", "'unsafe-eval'"] : ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
       imgSrc: ["'self'", "data:", "https:"],
       connectSrc: ["'self'", "https:"],
       fontSrc: ["'self'", "https:", "data:"],
       objectSrc: ["'none'"],
-      upgradeInsecureRequests: process.env.NODE_ENV === "development" ? [] : null,
+      upgradeInsecureRequests: isDevelopment ? [] : null,
     },
   },
   hsts: {
-    maxAge: 31536000, // 1 year
+    maxAge: 31536000,
     includeSubDomains: true,
     preload: process.env.NODE_ENV === "production",
   },
-  frameguard: {
-    action: "deny",
-  },
+  frameguard: { action: "deny" },
   xssFilter: true,
   noSniff: true,
-  dnsPrefetchControl: {
-    allow: false,
-  },
-  referrerPolicy: {
-    policy: "strict-origin-when-cross-origin",
-  },
+  dnsPrefetchControl: { allow: false },
+  referrerPolicy: { policy: "strict-origin-when-cross-origin" },
   crossOriginEmbedderPolicy: true,
   crossOriginOpenerPolicy: { policy: "same-origin" },
   crossOriginResourcePolicy: { policy: "same-site" },

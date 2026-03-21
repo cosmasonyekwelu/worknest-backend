@@ -1,22 +1,38 @@
 import Application from "../models/application.js";
 import Jobs from "../models/jobs.js";
 import User from "../models/user.js";
+import { NotFoundError, ValidationError, UnauthorizedError } from "../lib/errors.js";
+import logger from "../config/logger.js";
+import { generateInterviewQuestions, reviewApplication, scoreInterviewAnswers } from "./ai.service.js";
+
+const AI_SHORTLIST_THRESHOLD = Number(process.env.AI_SHORTLIST_THRESHOLD || 50);
+
+const REQUIRED_PERSONAL_INFO_FIELDS = ["firstname", "lastname", "email"];
+
+const assertRequiredPersonalInfo = (application) => {
+  const personalInfo = application?.personalInfo || {};
+  const missing = REQUIRED_PERSONAL_INFO_FIELDS.filter((field) => !String(personalInfo[field] || "").trim());
+
+  if (missing.length) {
+    throw new ValidationError(
+      `Missing required personal info fields: ${missing.join(", ")}. Update personal info before triggering AI review.`,
+    );
+  }
+};
 
 // ------------------------------------------------------------
 // Create new application
 // ------------------------------------------------------------
 export const createApplication = async (applicantId, jobId, applicationData) => {
   try {
-    // 1. Check if job exists
     const job = await Jobs.findById(jobId);
     if (!job) {
-      throw new Error("Job not found");
+      throw new NotFoundError("Job not found");
     }
 
-    // 2. Validate application questions if job has them
     if (job.applicationQuestions?.length) {
       if (!applicationData.answers || applicationData.answers.length !== job.applicationQuestions.length) {
-        throw new Error("Please answer all application questions");
+        throw new ValidationError("Please answer all application questions");
       }
 
       for (let i = 0; i < job.applicationQuestions.length; i++) {
@@ -24,47 +40,193 @@ export const createApplication = async (applicantId, jobId, applicationData) => 
         const providedAnswer = applicationData.answers[i];
 
         if (!providedAnswer || providedAnswer.question !== expectedQuestion || !providedAnswer.answer.trim()) {
-          throw new Error(`Invalid answer for question: "${expectedQuestion}"`);
+          throw new ValidationError(`Invalid answer for question: "${expectedQuestion}"`);
         }
       }
     }
 
-    // 3. Validate and extract personalInfo (must be provided by frontend)
     const { personalInfo, ...rest } = applicationData;
     if (!personalInfo) {
-      throw new Error("Personal information is required");
+      throw new ValidationError("Personal information is required");
     }
 
-    // Basic required fields check (firstname, lastname, email)
-    const requiredFields = ['firstname', 'lastname', 'email'];
-    for (const field of requiredFields) {
+    for (const field of REQUIRED_PERSONAL_INFO_FIELDS) {
       if (!personalInfo[field]?.trim()) {
-        throw new Error(`${field} is required in personalInfo`);
+        throw new ValidationError(`${field} is required in personalInfo`);
       }
     }
 
-    // 4. Create application with personalInfo snapshot
     const application = await Application.create({
       applicant: applicantId,
       job: jobId,
-      ...rest,                       // resumeUrl, portfolioUrl, linkedinUrl, answers
-      personalInfo,                   // store snapshot
+      ...rest,
+      personalInfo,
       statusHistory: [{
-        status: 'submitted',
+        status: "submitted",
         changedAt: new Date(),
         changedBy: applicantId,
-        note: 'Application submitted',
+        note: "Application submitted",
       }],
     });
 
     return application;
   } catch (error) {
-    // Handle duplicate key error (applicant already applied for this job)
     if (error.code === 11000) {
-      throw new Error("You have already applied for this job");
+      throw new ValidationError("You have already applied for this job");
     }
     throw error;
   }
+};
+
+export const processNewApplication = async (applicationId, actorId = null) => {
+  const application = await Application.findById(applicationId).populate("job");
+  if (!application) {
+    throw new NotFoundError("Application not found");
+  }
+
+  assertRequiredPersonalInfo(application);
+
+  const changedBy = actorId || application.applicant;
+
+  application.ai_processing_status = "processing";
+  application.status = "in_review";
+  application.statusHistory.push({
+    status: "in_review",
+    changedAt: new Date(),
+    changedBy,
+    note: "AI review started",
+  });
+  await application.save();
+
+  try {
+    const aiReview = await reviewApplication(application.job, application);
+    application.ai_score = aiReview.score;
+    application.ai_feedback = aiReview.feedback;
+
+    if (aiReview.score >= AI_SHORTLIST_THRESHOLD) {
+      application.status = "shortlisted";
+      application.statusHistory.push({
+        status: "shortlisted",
+        changedAt: new Date(),
+        changedBy,
+        note: `AI score ${aiReview.score} met threshold ${AI_SHORTLIST_THRESHOLD}`,
+      });
+
+      const interviewQuestions = await generateInterviewQuestions(application.job, application);
+      application.interview_questions = interviewQuestions;
+      application.status = "interview";
+      application.statusHistory.push({
+        status: "interview",
+        changedAt: new Date(),
+        changedBy,
+        note: "AI interview questions generated",
+      });
+    } else {
+      application.status = "rejected";
+      application.statusHistory.push({
+        status: "rejected",
+        changedAt: new Date(),
+        changedBy,
+        note: `AI score ${aiReview.score} below threshold ${AI_SHORTLIST_THRESHOLD}`,
+      });
+    }
+
+    application.ai_processing_status = "completed";
+    await application.save();
+
+    return application;
+  } catch (error) {
+    application.ai_processing_status = "failed";
+    await application.save();
+
+    logger.error("AI application processing failed", {
+      applicationId,
+      error: error.message,
+    });
+
+    throw error;
+  }
+};
+
+export const submitInterviewAnswers = async (applicationId, applicantId, answers = []) => {
+  const application = await Application.findById(applicationId);
+  if (!application) {
+    throw new NotFoundError("Application not found");
+  }
+
+  if (application.applicant.toString() !== applicantId.toString()) {
+    throw new UnauthorizedError("You can only submit answers for your own application");
+  }
+
+  if (application.status !== "interview") {
+    throw new ValidationError("Interview answers can only be submitted when application status is interview");
+  }
+
+  if (!Array.isArray(application.interview_questions) || application.interview_questions.length === 0) {
+    throw new ValidationError("No interview questions are available for this application");
+  }
+
+  if (!Array.isArray(answers) || answers.length !== application.interview_questions.length) {
+    throw new ValidationError("Please answer all interview questions");
+  }
+
+  const merged = application.interview_questions.map((questionDoc, index) => ({
+    question: questionDoc.question,
+    answer: String(answers[index]?.answer || "").trim(),
+  }));
+
+  if (merged.some((item) => !item.answer)) {
+    throw new ValidationError("All interview questions must have answers");
+  }
+
+  const scored = await scoreInterviewAnswers(merged);
+
+  application.interview_questions = merged.map((item, index) => ({
+    question: item.question,
+    answer: item.answer,
+    score: scored.scores[index],
+  }));
+  application.interview_score = scored.overallScore;
+  application.status = "shortlisted";
+  application.statusHistory.push({
+    status: "shortlisted",
+    changedAt: new Date(),
+    changedBy: applicantId,
+    note: `Interview submitted and scored ${scored.overallScore}`,
+  });
+
+  await application.save();
+  return application;
+};
+
+export const updateApplicationPersonalInfo = async (applicationId, adminId, personalInfo = {}) => {
+  const application = await Application.findById(applicationId);
+
+  if (!application) {
+    throw new NotFoundError("Application not found");
+  }
+
+  const updatedPersonalInfo = {
+    ...application.personalInfo,
+    ...personalInfo,
+  };
+
+  for (const field of REQUIRED_PERSONAL_INFO_FIELDS) {
+    if (!String(updatedPersonalInfo[field] || "").trim()) {
+      throw new ValidationError(`${field} is required in personalInfo`);
+    }
+  }
+
+  application.personalInfo = updatedPersonalInfo;
+  application.statusHistory.push({
+    status: application.status,
+    changedAt: new Date(),
+    changedBy: adminId,
+    note: "Admin updated applicant personal info",
+  });
+
+  await application.save();
+  return application;
 };
 
 // ------------------------------------------------------------
@@ -76,7 +238,7 @@ export const getUserApplications = async (applicantId, page = 1, limit = 10) => 
 
   const [applications, total] = await Promise.all([
     Application.find({ applicant: applicantId })
-      .populate("job", "title companyName location jobType createdAt")   // keep job details
+      .populate("job", "title companyName location jobType createdAt")
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(safeLimit)
@@ -85,7 +247,7 @@ export const getUserApplications = async (applicantId, page = 1, limit = 10) => 
   ]);
 
   return {
-    data: applications,   // each doc includes personalInfo
+    data: applications,
     total,
     page,
     totalPages: Math.ceil(total / safeLimit),
@@ -101,26 +263,21 @@ export const getApplicationById = async (applicationId, userId, role) => {
     .populate("applicant", "fullname email phone country");
 
   if (role === "admin") {
-    query = query.select('+internalNote');
+    query = query.select("+internalNote");
   }
 
   const application = await query.lean();
 
   if (!application) {
-    throw new Error("Application not found");
+    throw new NotFoundError("Application not found");
   }
 
-  // Authorization: applicant can only view their own applications
-  if (role === "applicant") {
-  const applicantId = application.applicant?._id?.toString?.() ?? application.applicant?.toString?.();
-  const currentUserId = userId?.toString?.();
-
-  if (!applicantId || !currentUserId || applicantId !== currentUserId) {
-    throw new AppError("Unauthorized to view this application", 403);
+  const applicationApplicantId = application?.applicant?._id?.toString?.() || application?.applicant?.toString?.();
+  if (role === "applicant" && applicationApplicantId !== userId.toString()) {
+    throw new UnauthorizedError("Unauthorized to view this application");
   }
-}
 
-  return application;   // contains personalInfo
+  return application;
 };
 
 // ------------------------------------------------------------
@@ -149,20 +306,17 @@ export const getAllApplications = async (filters = {}, page = 1, limit = 10) => 
     if (endDate) query.createdAt.$lte = new Date(endDate);
   }
 
-  // Keyword search (in applicant fullname/email or job title)
   if (keyword) {
     const trimmedKeyword = keyword.trim();
     if (trimmedKeyword) {
-      // Find users matching fullname or email
       const users = await User.find({
         $or: [
-          { fullname: { $regex: trimmedKeyword, $options: "i" } },   //  changed from 'name' to 'fullname'
+          { fullname: { $regex: trimmedKeyword, $options: "i" } },
           { email: { $regex: trimmedKeyword, $options: "i" } },
         ],
       }).select("_id");
       const userIds = users.map(u => u._id);
 
-      // Find jobs matching title
       const jobs = await Jobs.find({
         title: { $regex: trimmedKeyword, $options: "i" },
       }).select("_id");
@@ -179,8 +333,8 @@ export const getAllApplications = async (filters = {}, page = 1, limit = 10) => 
 
   const [applications, total] = await Promise.all([
     Application.find(query)
-      .select('+internalNote')
-      .populate("job", "title companyName location status")   // no applicant populate
+      .select("+internalNote")
+      .populate("job", "title companyName location status")
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(safeLimit)
@@ -189,7 +343,7 @@ export const getAllApplications = async (filters = {}, page = 1, limit = 10) => 
   ]);
 
   return {
-    data: applications,   // each doc contains personalInfo
+    data: applications,
     total,
     page,
     totalPages: Math.ceil(total / safeLimit),
@@ -211,16 +365,16 @@ export const updateApplicationStatus = async (applicationId, status, adminId, no
   ];
 
   if (!validStatuses.includes(status)) {
-    throw new Error("Invalid status");
+    throw new ValidationError("Invalid status");
   }
 
   const application = await Application.findById(applicationId);
   if (!application) {
-    throw new Error("Application not found");
+    throw new NotFoundError("Application not found");
   }
 
   if (application.status === status) {
-    throw new Error(`Application is already in "${status}" status`);
+    throw new ValidationError(`Application is already in "${status}" status`);
   }
 
   application.statusHistory.push({
@@ -242,17 +396,17 @@ export const updateApplicationStatus = async (applicationId, status, adminId, no
 export const updateInternalNote = async (applicationId, note) => {
   const trimmedNote = note?.trim();
   if (!trimmedNote) {
-    throw new Error("Note cannot be empty");
+    throw new ValidationError("Note cannot be empty");
   }
 
   const application = await Application.findByIdAndUpdate(
     applicationId,
     { internalNote: trimmedNote },
     { new: true, runValidators: true }
-  ).select('+internalNote');
+  ).select("+internalNote");
 
   if (!application) {
-    throw new Error("Application not found");
+    throw new NotFoundError("Application not found");
   }
 
   return application;
@@ -312,11 +466,11 @@ export const getApplicationStats = async (jobId = null) => {
   };
 };
 
-// ------------------------------------------------------------
-// Optional default export for easier imports in controllers
-// ------------------------------------------------------------
 export default {
   createApplication,
+  processNewApplication,
+  submitInterviewAnswers,
+  updateApplicationPersonalInfo,
   getUserApplications,
   getApplicationById,
   getAllApplications,

@@ -11,7 +11,7 @@ import {
   deleteProfileAccount,
   logoutAdmin,
 } from "../controllers/admin.controller.js";
-import { rateLimiter } from "../middleware/rateLimit.js";
+import { rateLimiter, refreshTokenLimit } from "../middleware/rateLimit.js";
 import { validateFormData } from "../middleware/validateForm.js";
 import {
   validateSignInSchema,
@@ -41,7 +41,7 @@ router.get(
   authenticateAdmin,
 );
 
-router.post("/refresh-token", refreshAdminAccessToken);
+router.post("/refresh-token", refreshTokenLimit, refreshAdminAccessToken);
 
 
 // Update admin profile (reuses userService.updateUser)
@@ -82,6 +82,7 @@ router.delete(
 router.delete(
   "/delete-account",
   verifyAuth,
+  authorizedRoles("admin"),
   clearCache("admin_profile"),
   deleteProfileAccount,
 );

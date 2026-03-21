@@ -7,16 +7,17 @@ import {
   deleteNotificationCtrl,
 } from "../controllers/notification.controller.js";
 import { verifyAuth } from "../middleware/authenticate.js";
+import { validateRequest } from "../middleware/validateRequest.js";
+import { notificationValidation } from "../validation/notification.validation.js";
 
 const router = express.Router();
 
-// All notification routes require authentication
 router.use(verifyAuth);
 
-router.get("/", getNotifications);                 // GET /notifications?page=1&limit=20&unreadOnly=false
-router.get("/unread-count", getUnreadCount);       // GET /notifications/unread-count
-router.patch("/:id/read", markNotificationRead);   // PATCH /notifications/:id/read
-router.patch("/read-all", markAllRead);            // PATCH /notifications/read-all
-router.delete("/:id", deleteNotificationCtrl);     // DELETE /notifications/:id
+router.get("/", validateRequest(notificationValidation.query, "query"), getNotifications);
+router.get("/unread-count", getUnreadCount);
+router.patch("/:id/read", validateRequest(notificationValidation.idParam, "params"), markNotificationRead);
+router.patch("/read-all", markAllRead);
+router.delete("/:id", validateRequest(notificationValidation.idParam, "params"), deleteNotificationCtrl);
 
 export default router;

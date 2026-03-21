@@ -1,4 +1,5 @@
 import { v2 as cloudinary } from "cloudinary";
+import logger from "../config/logger.js";
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -49,7 +50,7 @@ export const uploadToCloudinary = async (file, options = {}) => {
       (error && error.message) ||
       String(error);
     // Log full error for debugging
-    console.error("Cloudinary upload error:", error);
+    logger.error("Cloudinary upload error", { error: errMsg });
     throw new Error("Upload failed: " + errMsg);
   }
 };
@@ -63,7 +64,7 @@ export const deleteFromCloudinary = async (publicId) => {
       (error && error.error && error.error.message) ||
       (error && error.message) ||
       String(error);
-    console.error("Cloudinary deletion error:", error);
+    logger.error("Cloudinary deletion error", { error: errMsg });
     throw new Error("Deletion failed: " + errMsg);
   }
 };

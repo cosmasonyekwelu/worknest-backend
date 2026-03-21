@@ -1,39 +1,51 @@
 import { sendEmail } from "../lib/mail.js";
 
+const escapeHtml = (value = "") =>
+  String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
 const contactMailService = {
   sendContactMessage: async ({ fullName, email, subject, message }) => {
-    const htmlBody = `
-        <h2>New Contact Form Submission</h2>
-        <p><strong>Name:</strong> ${fullName}</p>
-       <p><strong>Email:</strong> ${email}</p>
-       <p><strong>Subject:</strong> ${subject}</p>
-       <p><strong>Message:</strong></p>
-       <p>${message}</p>
-        `;
+    const safeFullName = escapeHtml(fullName);
+    const safeEmail = escapeHtml(email);
+    const safeSubject = escapeHtml(subject);
+    const safeMessage = escapeHtml(message);
 
-    const info = await sendEmail({
-      to: process.env.EMAIL_USER,
-      subject: `Contact Form: ${subject}`,
+    const htmlBody = `
+      <h2>New Contact Form Submission</h2>
+      <p><strong>Name:</strong> ${safeFullName}</p>
+      <p><strong>Email:</strong> ${safeEmail}</p>
+      <p><strong>Subject:</strong> ${safeSubject}</p>
+      <p><strong>Message:</strong></p>
+      <p>${safeMessage}</p>
+    `;
+
+    return sendEmail({
+      to: process.env.BREVO_SENDER_EMAIL,
+      subject: `Contact Form: ${safeSubject}`,
       html: htmlBody,
     });
-    return info;
   },
 
   sendAutoReply: async ({ fullName, email }) => {
+    const safeFullName = escapeHtml(fullName);
+
     const htmlBody = `
-    <p>Hi ${fullName},</p>
-    <p>Thank you for reaching out to us. We have received your message and will get back to you soon</p>
-    <p>— Worknest Team</p>
+      <p>Hi ${safeFullName},</p>
+      <p>Thank you for reaching out to us. We have received your message and will get back to you soon.</p>
+      <p>— Worknest Team</p>
     `;
 
-    const info = await sendEmail({
+    return sendEmail({
       to: email,
       subject: "We received your message",
       html: htmlBody,
     });
-    return info;
   },
 };
-console.log("Sending contact message to:", process.env.EMAIL_USER);
 
 export default contactMailService;

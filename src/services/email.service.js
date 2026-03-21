@@ -26,11 +26,10 @@ const mailService = {
       html: htmlBody,
     });
   },
-  sendPasswordResetEmail: async (user) => {
+  sendPasswordResetEmail: async (user, resetToken) => {
     const htmlBody = passwordResetTemplate(
       user.fullname,
-      user.email,
-      user.passwordResetToken
+      resetToken
     );
     await sendEmail({
       to: user.email,

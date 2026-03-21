@@ -22,7 +22,6 @@ export const validateSignUpSchema = z.object({
     .regex(/[!@#$%^&*(),.?":{}|<>]/, {
       message: "Password must contain at least one special character",
     }),
-  role: z.enum(["applicant"]).optional(),
 });
 
 export const validateSignInSchema = z.object({
@@ -64,6 +63,14 @@ export const forgotPasswordSchema = z.object({
 });
 
 export const validateResetPasswordSchema = z.object({
+  email: z.email({
+    message: "Email is required",
+  }),
+  passwordResetToken: z
+    .string()
+    .length(6, {
+      message: "Password reset token must be 6 digits",
+    }),
   password: z
     .string()
     .min(8, {
@@ -158,12 +165,12 @@ export const validateUserSchema = z.object({
   bio: z.string().max(1000).optional(),
 });
 
-// export const contactFormSchema = z.object({
-//   fullName: z.string().min(2, "Full name is required"),
-//   email: z.email("Valid email is required"),
-//   subject: z.string().min(3, "Subject is required"),
-//   message: z.string().min(10, "Message must be at least 10 characters"),
-// });
+export const contactFormSchema = z.object({
+  fullName: z.string().trim().min(2, "Full name is required").max(120),
+  email: z.email("Valid email is required"),
+  subject: z.string().trim().min(3, "Subject is required").max(200),
+  message: z.string().trim().min(10, "Message must be at least 10 characters").max(4000),
+});
 export const validateAdminProfile = z.object({
   fullname: z.string().min(3, {
     message: "Full name must be at least 3 characters long",

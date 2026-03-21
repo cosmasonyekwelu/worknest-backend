@@ -8,7 +8,7 @@ import {
   resendVerificationToken,
   verifyUserAccount,
 } from "../controllers/auth.controller.js";
-import { rateLimiter } from "../middleware/rateLimit.js";
+import { rateLimiter, refreshTokenLimit } from "../middleware/rateLimit.js";
 import { validateFormData } from "../middleware/validateForm.js";
 import {
   forgotPasswordSchema,
@@ -33,7 +33,12 @@ import {
 
 const router = express.Router();
 
-router.post("/create", validateFormData(validateSignUpSchema), register);
+router.post(
+  "/create",
+  rateLimiter,
+  validateFormData(validateSignUpSchema),
+  register
+);
 router.post(
   "/login",
   rateLimiter,
@@ -47,7 +52,7 @@ router.get(
   authenticateUser,
 );
 
-router.post("/refresh-token", refreshAccessToken);
+router.post("/refresh-token", refreshTokenLimit, refreshAccessToken);
 
 router.patch(
   "/verify-account",

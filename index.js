@@ -7,13 +7,17 @@ import helmet from "helmet";
 import cookieParser from "cookie-parser";
 import { helmetOptions, compressionOptions } from "./src/lib/options.js";
 import logger from "./src/config/logger.js";
-import { gracefulShutdown } from "./src/config/db.server.js";
+import { gracefulShutdown, isDatabaseReady } from "./src/config/db.server.js";
+import { validateEnv } from "./src/config/env.js";
+import { apiLimiter } from "./src/middleware/rateLimit.js";
+import { requestIdMiddleware } from "./src/middleware/requestId.js";
 import {
   catchNotFound,
   globalErrorHandler,
 } from "./src/middleware/errorHandler.js";
 
 dotenv.config();
+validateEnv();
 
 // api routes
 import userRoutes from "./src/routes/userRoutes.js";
@@ -25,8 +29,6 @@ import notificationRoutes from "./src/routes/notificationRoutes.js";
 
 const app = express();
 app.set("trust proxy", 1);
-
-// const allowOrigins = [process.env.CLIENT_URL];
 
 const allowOrigins = process.env.CLIENT_URL
   ? process.env.CLIENT_URL.split(",").map((origin) => origin.trim())
@@ -46,11 +48,13 @@ if (process.env.NODE_ENV === "development") {
 }
 
 app.use(cookieParser());
-app.use(express.json({ limit: "25mb" }));
-app.use(express.urlencoded({ limit: "25mb", extended: true }));
+app.use(express.json({ limit: "2mb" }));
+app.use(express.urlencoded({ limit: "2mb", extended: true }));
 app.disable("x-powered-by");
+app.use(requestIdMiddleware);
 app.use(helmet(helmetOptions));
 app.use(compression(compressionOptions));
+app.use(apiLimiter);
 
 app.use((req, res, next) => {
   res.requestTime = new Date().toISOString();
@@ -66,7 +70,25 @@ app.get("/", (req, res) => {
   });
 });
 
-// TEST ROUTE
+app.get("/health/live", (req, res) => {
+  res.status(200).json({ status: "ok", timestamp: req.requestTime });
+});
+
+app.get("/health/ready", (req, res) => {
+  if (!isDatabaseReady()) {
+    return res.status(503).json({
+      status: "not_ready",
+      database: "disconnected",
+      timestamp: req.requestTime,
+    });
+  }
+
+  return res.status(200).json({
+    status: "ready",
+    database: "connected",
+    timestamp: req.requestTime,
+  });
+});
 
 // assemble routes
 app.use("/api/v1/auth", userRoutes);
@@ -76,47 +98,34 @@ app.use("/api/v1/applications", applicationRoutes);
 app.use("/api/v1/contact", contactRoutes);
 app.use("/api/v1/notifications", notificationRoutes);
 
-//handle route errors
 app.use(catchNotFound);
-
-//global error handler
 app.use(globalErrorHandler);
 
 const PORT = process.env.PORT || 5000;
-
-// Start the server
 
 const startServer = async () => {
   try {
     const server = app.listen(PORT, "0.0.0.0", () => {
       logger.info(
-        `\n✅ Server running in ${process.env.NODE_ENV} mode on port ${PORT}`,
+        `✅ Server running in ${process.env.NODE_ENV} mode on port ${PORT}`,
       );
-      logger.info(`🌐 http://localhost:${PORT}\n`);
+      logger.info(`🌐 http://localhost:${PORT}`);
     });
-    // Handle unhandled promise rejections
-    process.on("unhandledRejection", (reason) => {
-      console.error("\n❌ UNHANDLED REJECTION! Shutting down...");
 
+    process.on("unhandledRejection", (reason) => {
       const error =
         reason instanceof Error
           ? `${reason.name}: ${reason.message}`
           : String(reason);
 
-      logger.error("Reason:", error);
+      logger.error("Unhandled rejection. Shutting down.", { error });
 
-      // Close server gracefully
-      server.close(() => {
-        logger.info("💥 Process terminated due to unhandled rejection");
-        process.exit(1);
-      });
+      gracefulShutdown(server).finally(() => process.exit(1));
     });
 
-    // Handle termination signals
-    process.on("SIGTERM", gracefulShutdown);
-    process.on("SIGINT", gracefulShutdown);
+    process.on("SIGTERM", () => gracefulShutdown(server));
+    process.on("SIGINT", () => gracefulShutdown(server));
 
-    // Handle any other errors
     server.on("error", (error) => {
       if (error.syscall !== "listen") throw error;
 
@@ -136,7 +145,7 @@ const startServer = async () => {
   } catch (error) {
     const errorMessage =
       error instanceof Error ? error.message : "Unknown error";
-    logger.error(`\n❌ Failed to start server: ${errorMessage}`);
+    logger.error(`❌ Failed to start server: ${errorMessage}`);
     process.exit(1);
   }
 };

@@ -1,30 +1,30 @@
 import User from "../models/user.js";
-import responseHandler from "../lib/responseHandler.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import crypto from "crypto";
 import { deleteFromCloudinary } from "../lib/cloudinary.js";
-
-const { errorResponse, notFoundResponse } = responseHandler;
+import { getJwtSecrets } from "../config/env.js";
+import { NotFoundError, UnauthorizedError, ForbiddenError } from "../lib/errors.js";
+import {
+  hashToken as hashRefreshToken,
+  persistRefreshTokenState,
+  invalidateRefreshTokenState,
+} from "../lib/session.js";
 
 const adminService = {
   // admin login service - only admins can login
-  adminLogin: async (req, next) => {
+  adminLogin: async (req) => {
     const user = await User.findOne({ email: req.body.email }).select(
-      "+password",
+      "+password +tokenVersion",
     );
 
     if (!user) {
-      return next(errorResponse("Admin account not found", 401));
+      throw new UnauthorizedError("Incorrect email or password");
     }
 
     // Check if user role is admin
     if (user.role !== "admin") {
-      return next(
-        errorResponse(
-          "Only admins can access this route. Please contact an administrator to upgrade your account.",
-          403,
-        ),
-      );
+      throw new ForbiddenError("Only admins can access this route.");
     }
 
     // Handle password comparison
@@ -34,60 +34,82 @@ const adminService = {
     );
 
     if (!isPasswordValid) {
-      return next(errorResponse("Incorrect email or password", 401));
+      throw new UnauthorizedError("Incorrect email or password");
     }
 
     return user;
   },
 
+  issueAndPersistRefreshToken: async (userId, refreshToken) => {
+    await persistRefreshTokenState(userId, refreshToken);
+  },
+
   // authenticate admin - verify admin status
-  authenticateAdmin: async (userId, next) => {
+  authenticateAdmin: async (userId) => {
     const user = await User.findById(userId);
 
     if (!user) {
-      return next(notFoundResponse("Admin not found"));
+      throw new NotFoundError("Admin not found");
     }
 
     // Verify user is still an admin
     if (user.role !== "admin") {
-      return next(
-        errorResponse("Your admin privileges have been revoked", 403),
-      );
+      throw new ForbiddenError("Your admin privileges have been revoked");
     }
 
     return user;
   },
 
   // refresh admin access token
-  refreshAdminAccessToken: async (refreshToken, next) => {
+  refreshAdminAccessToken: async (refreshToken) => {
     if (!refreshToken) {
-      return next(errorResponse("Refresh token is required", 401));
+      throw new UnauthorizedError("Refresh token is required");
     }
 
     // Verify the refresh token
-    const decoded = jwt.verify(refreshToken, process.env.JWT_SECRET_KEY);
+    const { refreshSecret } = getJwtSecrets();
+    const decoded = jwt.verify(
+      refreshToken,
+      refreshSecret,
+    );
 
-    if (!decoded) {
-      return next(errorResponse("Invalid refresh token", 401));
+    if (decoded.tokenType !== "refresh") {
+      throw new UnauthorizedError("Invalid token type");
     }
 
-    const user = await User.findById(decoded.id);
+    const user = await User.findById(decoded.id).select(
+      "+refreshTokenHash +refreshTokenExpiresAt +tokenVersion",
+    );
 
     if (!user) {
-      return next(notFoundResponse("Admin account not found"));
+      throw new NotFoundError("Admin account not found");
+    }
+
+    if (decoded.tokenVersion !== user.tokenVersion) {
+      throw new UnauthorizedError("Refresh token is no longer valid");
+    }
+
+    if (!user.refreshTokenHash || hashRefreshToken(refreshToken) !== user.refreshTokenHash) {
+      // Potential reuse detected: token has correct version but wrong hash.
+      // Invalidate all sessions for this user as a precaution.
+      await invalidateRefreshTokenState(user._id, true);
+      throw new UnauthorizedError("Refresh token reuse detected. Please log in again.");
+    }
+
+    if (!user.refreshTokenExpiresAt || user.refreshTokenExpiresAt < new Date()) {
+      await invalidateRefreshTokenState(user._id, true);
+      throw new UnauthorizedError("Refresh token has expired");
     }
 
     // Verify user is still an admin
     if (user.role !== "admin") {
-      return next(
-        errorResponse("Your admin privileges have been revoked", 403),
-      );
+      throw new ForbiddenError("Your admin privileges have been revoked");
     }
 
     return user;
   },
-  //   don't think we might need it but i will leave it here for now
-  getAllUsers: async (page = 1, limit = 3, query = "", role = "", next) => {
+
+  getAllUsers: async (page = 1, limit = 3, query = "", role = "") => {
     const sanitizeQuery =
       query || role
         ? (query || role).toLowerCase().replace(/[^\w\s]/gi, "")
@@ -117,9 +139,7 @@ const adminService = {
             .limit(limit),
           User.countDocuments(),
         ]);
-    if (!users) {
-      return next(notFoundResponse("No users found"));
-    }
+
     return {
       meta: {
         currentPage: page,
@@ -131,10 +151,25 @@ const adminService = {
       users,
     };
   },
-  deleteAccountAdmins: async (userId, next) => {
+
+  logoutAdmin: async (res, userId) => {
+    if (userId) {
+      await invalidateRefreshTokenState(userId, true);
+    }
+
+    res.cookie("adminRefreshToken", "", {
+      maxAge: 0,
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      path: "/api/v1/admin/refresh-token",
+    });
+    return true;
+  },
+  deleteAccountAdmins: async (userId) => {
     const user = await User.findById(userId);
     if (!user) {
-      return next(notFoundResponse("Account not found"));
+      throw new NotFoundError("Account not found");
     }
     if (user.avatarId) {
       await deleteFromCloudinary(user.avatarId);

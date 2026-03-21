@@ -11,26 +11,37 @@ const notificationSchema = new Schema(
     type: {
       type: String,
       enum: [
-        "application_submitted",      // applicant confirmation
-        "application_status_changed", // status update
-        "new_application_admin",      // admin alert
-        "job_expiring",               // optional future use
+        "application_submitted",
+        "application_status_changed",
+        "new_application_admin",
+        "job_expiring",
       ],
       required: true,
+      trim: true,
     },
     title: {
       type: String,
       required: true,
       trim: true,
+      minlength: 3,
+      maxlength: 140,
     },
     message: {
       type: String,
       required: true,
       trim: true,
+      minlength: 3,
+      maxlength: 1000,
     },
     data: {
-      type: Schema.Types.Mixed, // can hold jobId, applicationId, etc.
-      default: {},
+      jobId: {
+        type: Schema.Types.ObjectId,
+        ref: "Jobs",
+      },
+      applicationId: {
+        type: Schema.Types.ObjectId,
+        ref: "Application",
+      },
     },
     read: {
       type: Boolean,
@@ -40,10 +51,10 @@ const notificationSchema = new Schema(
       type: Date,
     },
   },
-  { timestamps: true } // adds createdAt, updatedAt
+  { timestamps: true },
 );
 
-// Index for sorting by newest
+notificationSchema.index({ recipient: 1, read: 1, createdAt: -1 });
 notificationSchema.index({ createdAt: -1 });
 
 const Notification = mongoose.models.Notification || model("Notification", notificationSchema);
