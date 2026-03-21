@@ -72,7 +72,6 @@ DATABASE_NAME=worknest_server
 MONGO_URI=mongodb+srv://<user>:<password>@cluster0.mongodb.net
 
 # Auth
-JWT_SECRET_KEY=your_secret_key
 JWT_ACCESS_SECRET_KEY=your_access_secret
 JWT_REFRESH_SECRET_KEY=your_refresh_secret
 JWT_ACCESS_TOKEN_EXPIRES=15m
@@ -88,6 +87,11 @@ CLOUDINARY_CLOUD_NAME=xxxx
 CLOUDINARY_API_KEY=xxxx
 CLOUDINARY_API_SECRET=xxxx
 CLOUDINARY_URL=cloudinary://key:secret@name
+
+#AI
+GROQ_API_KEY=your_Groq_API_key
+AI_MODEL=meta-llama/llama-4-scout-17b-16e-instruct
+AI_SHORTLIST_THRESHOLD=50
 ```
 
 ---

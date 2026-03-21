@@ -6,11 +6,8 @@ const envSchema = z.object({
   CLIENT_URL: z.string().min(1),
   MONGO_URI: z.string().min(1),
   DATABASE_NAME: z.string().min(1),
-  JWT_ACCESS_SECRET_KEY: z.string().min(16).optional(),
-  JWT_REFRESH_SECRET_KEY: z.string().min(16).optional(),
-  JWT_ACCESS_SECRET: z.string().min(16).optional(),
-  JWT_REFRESH_SECRET: z.string().min(16).optional(),
-  JWT_SECRET_KEY: z.string().min(16).optional(),
+  JWT_ACCESS_SECRET_KEY: z.string().min(16),
+  JWT_REFRESH_SECRET_KEY: z.string().min(16),
   JWT_ACCESS_TOKEN_EXPIRES: z.string().default("15m"),
   JWT_REFRESH_TOKEN_EXPIRES: z.string().default("7d"),
   BREVO_API_KEY: z.string().min(1),
@@ -34,27 +31,13 @@ export const validateEnv = () => {
   }
 
   const values = parsed.data;
-  const accessSecret = values.JWT_ACCESS_SECRET_KEY || values.JWT_ACCESS_SECRET || values.JWT_SECRET_KEY;
-  const refreshSecret = values.JWT_REFRESH_SECRET_KEY || values.JWT_REFRESH_SECRET || values.JWT_SECRET_KEY;
 
   if (values.NODE_ENV === "production") {
     if (!values.BREVO_SENDER_EMAIL || !values.BREVO_SENDER_NAME) {
       throw new Error("Production Error: BREVO_SENDER_EMAIL and BREVO_SENDER_NAME are required");
     }
-    if (!values.JWT_ACCESS_SECRET_KEY && !values.JWT_ACCESS_SECRET) {
-      throw new Error("Production Error: JWT_ACCESS_SECRET_KEY or JWT_ACCESS_SECRET is required");
-    }
-    if (!values.JWT_REFRESH_SECRET_KEY && !values.JWT_REFRESH_SECRET) {
-      throw new Error("Production Error: JWT_REFRESH_SECRET_KEY or JWT_REFRESH_SECRET is required");
-    }
-    if (accessSecret === refreshSecret) {
+    if (values.JWT_ACCESS_SECRET_KEY === values.JWT_REFRESH_SECRET_KEY) {
       throw new Error("Production Error: Access and Refresh secrets must be different");
-    }
-  } else {
-    if (!accessSecret || !refreshSecret) {
-      throw new Error(
-        "Environment validation failed: define JWT_ACCESS_SECRET_KEY/JWT_ACCESS_SECRET and JWT_REFRESH_SECRET_KEY/JWT_REFRESH_SECRET (or JWT_SECRET_KEY fallback)",
-      );
     }
   }
 
@@ -62,10 +45,7 @@ export const validateEnv = () => {
 };
 
 export const getJwtSecrets = () => {
-  const accessSecret =
-    process.env.JWT_ACCESS_SECRET_KEY || process.env.JWT_ACCESS_SECRET || process.env.JWT_SECRET_KEY;
-  const refreshSecret =
-    process.env.JWT_REFRESH_SECRET_KEY || process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET_KEY;
+  const { JWT_ACCESS_SECRET_KEY: accessSecret, JWT_REFRESH_SECRET_KEY: refreshSecret } = process.env;
 
   if (!accessSecret || !refreshSecret) {
     throw new Error("JWT secrets are not configured");
