@@ -6,6 +6,11 @@ import { rateLimiter } from "../middleware/rateLimit.js";
 
 const router = express.Router();
 
-router.post("/send", rateLimiter, validateFormData(contactFormSchema), sendContactMail);
+router.post(
+  "/send",
+  rateLimiter,
+  validateFormData(contactFormSchema),
+  sendContactMail,
+);
 
 export default router;

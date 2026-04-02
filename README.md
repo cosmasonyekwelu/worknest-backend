@@ -56,6 +56,18 @@ API will be available at:
 http://localhost:5000
 ```
 
+Swagger documentation will be available at:
+
+```
+http://localhost:5000/docs
+```
+
+Raw OpenAPI JSON will be available at:
+
+```
+http://localhost:5000/openapi.json
+```
+
 ---
 
 ## Environment Variables

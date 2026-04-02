@@ -26,6 +26,7 @@ import jobRoutes from "./src/routes/jobRoutes.js";
 import applicationRoutes from "./src/routes/applicationRoutes.js";
 import contactRoutes from "./src/routes/contactRoute.js";
 import notificationRoutes from "./src/routes/notificationRoutes.js";
+import docsRoutes from "./src/routes/docsRoutes.js";
 
 const app = express();
 app.set("trust proxy", 1);
@@ -62,11 +63,17 @@ app.use((req, res, next) => {
 });
 
 app.get("/", (req, res) => {
+  const baseUrl = `${req.protocol}://${req.get("host")}`;
+
   res.status(200).json({
     status: "success",
     message: "Welcome to Worknest Backend API",
     environment: process.env.NODE_ENV,
     timestamp: req.requestTime,
+    docs: {
+      swaggerUi: `${baseUrl}/docs`,
+      openApiJson: `${baseUrl}/openapi.json`,
+    },
   });
 });
 
@@ -91,6 +98,7 @@ app.get("/health/ready", (req, res) => {
 });
 
 // assemble routes
+app.use(docsRoutes);
 app.use("/api/v1/auth", userRoutes);
 app.use("/api/v1/admin", adminRoutes);
 app.use("/api/v1/jobs", jobRoutes);
@@ -107,9 +115,11 @@ const startServer = async () => {
   try {
     const server = app.listen(PORT, "0.0.0.0", () => {
       logger.info(
-        `✅ Server running in ${process.env.NODE_ENV} mode on port ${PORT}`,
+        `Server running in ${process.env.NODE_ENV} mode on port ${PORT}`,
       );
-      logger.info(`🌐 http://localhost:${PORT}`);
+      logger.info(`API base URL: http://localhost:${PORT}`);
+      logger.info(`Swagger UI: http://localhost:${PORT}/docs`);
+      logger.info(`OpenAPI JSON: http://localhost:${PORT}/openapi.json`);
     });
 
     process.on("unhandledRejection", (reason) => {
@@ -145,7 +155,7 @@ const startServer = async () => {
   } catch (error) {
     const errorMessage =
       error instanceof Error ? error.message : "Unknown error";
-    logger.error(`❌ Failed to start server: ${errorMessage}`);
+    logger.error(`Failed to start server: ${errorMessage}`);
     process.exit(1);
   }
 };

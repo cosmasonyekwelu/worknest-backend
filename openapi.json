@@ -1,0 +1,1116 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "WorkNest Backend API",
+    "version": "1.0.0",
+    "description": "Canonical HTTP contract for the WorkNest backend service."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:5000",
+      "description": "Local development"
+    }
+  ],
+  "tags": [
+    { "name": "System" },
+    { "name": "Auth" },
+    { "name": "Admin" },
+    { "name": "Jobs" },
+    { "name": "Applications" },
+    { "name": "Notifications" },
+    { "name": "Contact" }
+  ],
+  "paths": {
+    "/": {
+      "get": {
+        "tags": ["System"],
+        "summary": "Welcome endpoint",
+        "responses": {
+          "200": {
+            "description": "Service metadata",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string" },
+                    "message": { "type": "string" },
+                    "environment": { "type": "string" },
+                    "timestamp": { "type": "string", "format": "date-time" }
+                  },
+                  "required": ["status", "message", "environment", "timestamp"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health/live": {
+      "get": {
+        "tags": ["System"],
+        "summary": "Liveness check",
+        "responses": {
+          "200": {
+            "description": "Service is live",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string", "const": "ok" },
+                    "timestamp": { "type": "string", "format": "date-time" }
+                  },
+                  "required": ["status", "timestamp"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health/ready": {
+      "get": {
+        "tags": ["System"],
+        "summary": "Readiness check",
+        "responses": {
+          "200": {
+            "description": "Service is ready"
+          },
+          "503": {
+            "description": "Service is not ready"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/create": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Register user",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SignUpRequest" }
+            }
+          }
+        },
+        "responses": { "201": { "$ref": "#/components/responses/Success" } }
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "User login",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SignInRequest" }
+            }
+          }
+        },
+        "responses": { "200": { "$ref": "#/components/responses/Success" } }
+      }
+    },
+    "/api/v1/auth/user": {
+      "get": {
+        "tags": ["Auth"],
+        "summary": "Get authenticated user",
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "200": { "$ref": "#/components/responses/Success" } }
+      }
+    },
+    "/api/v1/auth/refresh-token": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Refresh user access token",
+        "security": [{ "refreshCookie": [] }],
+        "responses": { "200": { "$ref": "#/components/responses/Success" } }
+      }
+    },
+    "/api/v1/auth/verify-account": {
+      "patch": {
+        "tags": ["Auth"],
+        "summary": "Verify account",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/VerifyAccountRequest" }
+            }
+          }
+        },
+        "responses": { "200": { "$ref": "#/components/responses/Success" } }
+      }
+    },
+    "/api/v1/auth/resend/verify-token": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Resend verification token",
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "200": { "$ref": "#/components/responses/Success" } }
+      }
+    },
+    "/api/v1/auth/forgot-password": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Start forgot password flow",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ForgotPasswordRequest" }
+            }
+          }
+        },
+        "responses": { "200": { "$ref": "#/components/responses/Success" } }
+      }
+    },
+    "/api/v1/auth/reset-password": {
+      "patch": {
+        "tags": ["Auth"],
+        "summary": "Reset password",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ResetPasswordRequest" }
+            }
+          }
+        },
+        "responses": { "200": { "$ref": "#/components/responses/Success" } }
+      }
+    },
+    "/api/v1/auth/update-password": {
+      "patch": {
+        "tags": ["Auth"],
+        "summary": "Update password",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpdatePasswordRequest" }
+            }
+          }
+        },
+        "responses": { "200": { "$ref": "#/components/responses/Success" } }
+      }
+    },
+    "/api/v1/auth/update-user": {
+      "patch": {
+        "tags": ["Auth"],
+        "summary": "Update profile",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UserProfilePatchRequest" }
+            }
+          }
+        },
+        "responses": { "200": { "$ref": "#/components/responses/Success" } }
+      }
+    },
+    "/api/v1/auth/upload-avatar": {
+      "patch": {
+        "tags": ["Auth"],
+        "summary": "Upload user avatar",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": { "avatar": { "type": "string", "format": "binary" } },
+                "required": ["avatar"]
+              }
+            }
+          }
+        },
+        "responses": { "200": { "$ref": "#/components/responses/Success" } }
+      }
+    },
+    "/api/v1/auth/delete-account": {
+      "delete": {
+        "tags": ["Auth"],
+        "summary": "Delete account",
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "200": { "$ref": "#/components/responses/Success" } }
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Logout user",
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "200": { "$ref": "#/components/responses/Success" } }
+      }
+    },
+
+    "/api/v1/admin/login": {
+      "post": {
+        "tags": ["Admin"],
+        "summary": "Admin login",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SignInRequest" }
+            }
+          }
+        },
+        "responses": { "200": { "$ref": "#/components/responses/Success" } }
+      }
+    },
+    "/api/v1/admin/profile": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "Get admin profile",
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "200": { "$ref": "#/components/responses/Success" } }
+      },
+      "patch": {
+        "tags": ["Admin"],
+        "summary": "Update admin profile",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/AdminProfileRequest" }
+            }
+          }
+        },
+        "responses": { "200": { "$ref": "#/components/responses/Success" } }
+      }
+    },
+    "/api/v1/admin/refresh-token": {
+      "post": {
+        "tags": ["Admin"],
+        "summary": "Refresh admin access token",
+        "security": [{ "refreshCookie": [] }],
+        "responses": { "200": { "$ref": "#/components/responses/Success" } }
+      }
+    },
+    "/api/v1/admin/upload-avatar": {
+      "patch": {
+        "tags": ["Admin"],
+        "summary": "Upload admin avatar",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": { "avatar": { "type": "string", "format": "binary" } },
+                "required": ["avatar"]
+              }
+            }
+          }
+        },
+        "responses": { "200": { "$ref": "#/components/responses/Success" } }
+      }
+    },
+    "/api/v1/admin/profile/password": {
+      "patch": {
+        "tags": ["Admin"],
+        "summary": "Update admin password",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpdatePasswordRequest" }
+            }
+          }
+        },
+        "responses": { "200": { "$ref": "#/components/responses/Success" } }
+      }
+    },
+    "/api/v1/admin/all": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "List all users",
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "200": { "$ref": "#/components/responses/Success" } }
+      }
+    },
+    "/api/v1/admin/{id}/delete-account": {
+      "delete": {
+        "tags": ["Admin"],
+        "summary": "Delete user account by id",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/ObjectIdPathParam" }],
+        "responses": { "200": { "$ref": "#/components/responses/Success" } }
+      }
+    },
+    "/api/v1/admin/delete-account": {
+      "delete": {
+        "tags": ["Admin"],
+        "summary": "Delete current admin account",
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "200": { "$ref": "#/components/responses/Success" } }
+      }
+    },
+    "/api/v1/admin/logout": {
+      "post": {
+        "tags": ["Admin"],
+        "summary": "Logout admin",
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "200": { "$ref": "#/components/responses/Success" } }
+      }
+    },
+
+    "/api/v1/jobs": {
+      "post": {
+        "tags": ["Jobs"],
+        "summary": "Create job",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "allOf": [
+                  { "$ref": "#/components/schemas/JobCreateRequest" },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "companyLogo": { "type": "string", "format": "binary" }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": { "201": { "$ref": "#/components/responses/Success" } }
+      }
+    },
+    "/api/v1/jobs/all": {
+      "get": {
+        "tags": ["Jobs"],
+        "summary": "List jobs",
+        "parameters": [
+          { "$ref": "#/components/parameters/KeywordQuery" },
+          { "$ref": "#/components/parameters/CategoryQuery" },
+          { "$ref": "#/components/parameters/JobTypeQuery" },
+          { "$ref": "#/components/parameters/SalaryMinQuery" },
+          { "$ref": "#/components/parameters/SalaryMaxQuery" },
+          { "$ref": "#/components/parameters/ExperienceLevelQuery" },
+          { "$ref": "#/components/parameters/LocationQuery" },
+          { "$ref": "#/components/parameters/StatusQuery" },
+          { "$ref": "#/components/parameters/PageQuery" },
+          { "$ref": "#/components/parameters/LimitQuery" }
+        ],
+        "responses": { "200": { "$ref": "#/components/responses/Success" } }
+      }
+    },
+    "/api/v1/jobs/saved": {
+      "get": {
+        "tags": ["Jobs"],
+        "summary": "List saved jobs",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/PageQuery" },
+          { "$ref": "#/components/parameters/SavedLimitQuery" }
+        ],
+        "responses": { "200": { "$ref": "#/components/responses/Success" } }
+      }
+    },
+    "/api/v1/jobs/{id}": {
+      "get": {
+        "tags": ["Jobs"],
+        "summary": "Get job by id",
+        "parameters": [{ "$ref": "#/components/parameters/ObjectIdPathParam" }],
+        "responses": { "200": { "$ref": "#/components/responses/Success" } }
+      },
+      "patch": {
+        "tags": ["Jobs"],
+        "summary": "Update job",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/ObjectIdPathParam" }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "allOf": [
+                  { "$ref": "#/components/schemas/JobUpdateRequest" },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "companyLogo": { "type": "string", "format": "binary" }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": { "200": { "$ref": "#/components/responses/Success" } }
+      },
+      "delete": {
+        "tags": ["Jobs"],
+        "summary": "Delete job",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/ObjectIdPathParam" }],
+        "responses": { "200": { "$ref": "#/components/responses/Success" } }
+      }
+    },
+    "/api/v1/jobs/{id}/save": {
+      "post": {
+        "tags": ["Jobs"],
+        "summary": "Save job",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/ObjectIdPathParam" }],
+        "responses": { "200": { "$ref": "#/components/responses/Success" } }
+      },
+      "delete": {
+        "tags": ["Jobs"],
+        "summary": "Unsave job",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/ObjectIdPathParam" }],
+        "responses": { "200": { "$ref": "#/components/responses/Success" } }
+      }
+    },
+    "/api/v1/jobs/{jobId}/upload-avatar": {
+      "patch": {
+        "tags": ["Jobs"],
+        "summary": "Upload job avatar",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "jobId",
+            "in": "path",
+            "required": true,
+            "schema": { "$ref": "#/components/schemas/ObjectId" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": { "avatar": { "type": "string", "format": "binary" } },
+                "required": ["avatar"]
+              }
+            }
+          }
+        },
+        "responses": { "200": { "$ref": "#/components/responses/Success" } }
+      }
+    },
+    "/api/v1/jobs/create": {
+      "post": {
+        "tags": ["Jobs"],
+        "summary": "Legacy alias for create job",
+        "deprecated": true,
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "201": { "$ref": "#/components/responses/Success" } }
+      }
+    },
+    "/api/v1/jobs/{id}/update": {
+      "patch": {
+        "tags": ["Jobs"],
+        "summary": "Legacy alias for update job",
+        "deprecated": true,
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/ObjectIdPathParam" }],
+        "responses": { "200": { "$ref": "#/components/responses/Success" } }
+      }
+    },
+    "/api/v1/jobs/{id}/delete": {
+      "delete": {
+        "tags": ["Jobs"],
+        "summary": "Legacy alias for delete job",
+        "deprecated": true,
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/ObjectIdPathParam" }],
+        "responses": { "200": { "$ref": "#/components/responses/Success" } }
+      }
+    },
+
+    "/api/v1/applications/{jobId}/apply": {
+      "post": {
+        "tags": ["Applications"],
+        "summary": "Apply for job",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "jobId",
+            "in": "path",
+            "required": true,
+            "schema": { "$ref": "#/components/schemas/ObjectId" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "resume": { "type": "string", "format": "binary" },
+                  "coverLetter": { "type": "string", "maxLength": 5000 },
+                  "answers": {
+                    "type": "array",
+                    "items": { "type": "string", "maxLength": 1000 },
+                    "default": []
+                  }
+                },
+                "required": ["resume"]
+              }
+            }
+          }
+        },
+        "responses": { "201": { "$ref": "#/components/responses/Success" } }
+      }
+    },
+    "/api/v1/applications/me": {
+      "get": {
+        "tags": ["Applications"],
+        "summary": "Get my applications",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/PageQuery" },
+          { "$ref": "#/components/parameters/AppLimitQuery" }
+        ],
+        "responses": { "200": { "$ref": "#/components/responses/Success" } }
+      }
+    },
+    "/api/v1/applications/stats/overview": {
+      "get": {
+        "tags": ["Applications"],
+        "summary": "Get application stats overview",
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "200": { "$ref": "#/components/responses/Success" } }
+      }
+    },
+    "/api/v1/applications": {
+      "get": {
+        "tags": ["Applications"],
+        "summary": "Get all applications (admin)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "schema": { "$ref": "#/components/schemas/ApplicationStatus" }
+          },
+          {
+            "name": "jobId",
+            "in": "query",
+            "schema": { "$ref": "#/components/schemas/ObjectId" }
+          },
+          {
+            "name": "applicantId",
+            "in": "query",
+            "schema": { "$ref": "#/components/schemas/ObjectId" }
+          },
+          {
+            "name": "startDate",
+            "in": "query",
+            "schema": { "type": "string", "format": "date-time" }
+          },
+          {
+            "name": "endDate",
+            "in": "query",
+            "schema": { "type": "string", "format": "date-time" }
+          },
+          { "$ref": "#/components/parameters/KeywordQuery" },
+          { "$ref": "#/components/parameters/PageQuery" },
+          { "$ref": "#/components/parameters/AppLimitQuery" }
+        ],
+        "responses": { "200": { "$ref": "#/components/responses/Success" } }
+      }
+    },
+    "/api/v1/applications/{id}": {
+      "get": {
+        "tags": ["Applications"],
+        "summary": "Get application by id",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/ObjectIdPathParam" }],
+        "responses": { "200": { "$ref": "#/components/responses/Success" } }
+      }
+    },
+    "/api/v1/applications/{id}/status": {
+      "patch": {
+        "tags": ["Applications"],
+        "summary": "Update application status",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/ObjectIdPathParam" }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ApplicationStatusUpdateRequest" }
+            }
+          }
+        },
+        "responses": { "200": { "$ref": "#/components/responses/Success" } }
+      }
+    },
+    "/api/v1/applications/{id}/note": {
+      "patch": {
+        "tags": ["Applications"],
+        "summary": "Update application note",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/ObjectIdPathParam" }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ApplicationNoteUpdateRequest" }
+            }
+          }
+        },
+        "responses": { "200": { "$ref": "#/components/responses/Success" } }
+      }
+    },
+    "/api/v1/applications/{id}/submit-interview": {
+      "post": {
+        "tags": ["Applications"],
+        "summary": "Submit interview answers",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/ObjectIdPathParam" }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SubmitInterviewRequest" }
+            }
+          }
+        },
+        "responses": { "200": { "$ref": "#/components/responses/Success" } }
+      }
+    },
+    "/api/v1/applications/{id}/ai-review": {
+      "post": {
+        "tags": ["Applications"],
+        "summary": "Trigger manual AI review",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/ObjectIdPathParam" }],
+        "responses": { "200": { "$ref": "#/components/responses/Success" } }
+      }
+    },
+    "/api/v1/applications/{id}/personal-info": {
+      "put": {
+        "tags": ["Applications"],
+        "summary": "Update application personal info",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/ObjectIdPathParam" }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ApplicationPersonalInfoRequest" }
+            }
+          }
+        },
+        "responses": { "200": { "$ref": "#/components/responses/Success" } }
+      }
+    },
+
+    "/api/v1/notifications": {
+      "get": {
+        "tags": ["Notifications"],
+        "summary": "List notifications",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/PageQuery" },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 }
+          },
+          { "name": "isRead", "in": "query", "schema": { "type": "boolean" } },
+          { "name": "unreadOnly", "in": "query", "schema": { "type": "boolean" } }
+        ],
+        "responses": { "200": { "$ref": "#/components/responses/Success" } }
+      }
+    },
+    "/api/v1/notifications/unread-count": {
+      "get": {
+        "tags": ["Notifications"],
+        "summary": "Get unread notification count",
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "200": { "$ref": "#/components/responses/Success" } }
+      }
+    },
+    "/api/v1/notifications/read-all": {
+      "patch": {
+        "tags": ["Notifications"],
+        "summary": "Mark all notifications read",
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "200": { "$ref": "#/components/responses/Success" } }
+      }
+    },
+    "/api/v1/notifications/{id}/read": {
+      "patch": {
+        "tags": ["Notifications"],
+        "summary": "Mark one notification read",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/ObjectIdPathParam" }],
+        "responses": { "200": { "$ref": "#/components/responses/Success" } }
+      }
+    },
+    "/api/v1/notifications/{id}": {
+      "delete": {
+        "tags": ["Notifications"],
+        "summary": "Delete notification",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/ObjectIdPathParam" }],
+        "responses": { "200": { "$ref": "#/components/responses/Success" } }
+      }
+    },
+
+    "/api/v1/contact/send": {
+      "post": {
+        "tags": ["Contact"],
+        "summary": "Send contact request",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ContactRequest" }
+            }
+          }
+        },
+        "responses": { "200": { "$ref": "#/components/responses/Success" } }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      },
+      "refreshCookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "refreshToken"
+      }
+    },
+    "parameters": {
+      "ObjectIdPathParam": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": { "$ref": "#/components/schemas/ObjectId" }
+      },
+      "KeywordQuery": {
+        "name": "keyword",
+        "in": "query",
+        "schema": { "type": "string", "maxLength": 120 }
+      },
+      "CategoryQuery": {
+        "name": "category",
+        "in": "query",
+        "schema": { "type": "string", "maxLength": 80 }
+      },
+      "JobTypeQuery": {
+        "name": "jobType",
+        "in": "query",
+        "schema": { "$ref": "#/components/schemas/JobType" }
+      },
+      "SalaryMinQuery": {
+        "name": "salaryMin",
+        "in": "query",
+        "schema": { "type": "number", "minimum": 0 }
+      },
+      "SalaryMaxQuery": {
+        "name": "salaryMax",
+        "in": "query",
+        "schema": { "type": "number", "minimum": 0 }
+      },
+      "ExperienceLevelQuery": {
+        "name": "experienceLevel",
+        "in": "query",
+        "schema": { "type": "string", "maxLength": 60 }
+      },
+      "LocationQuery": {
+        "name": "location",
+        "in": "query",
+        "schema": { "type": "string", "maxLength": 120 }
+      },
+      "StatusQuery": {
+        "name": "status",
+        "in": "query",
+        "schema": { "$ref": "#/components/schemas/JobStatus" }
+      },
+      "PageQuery": {
+        "name": "page",
+        "in": "query",
+        "schema": { "type": "integer", "minimum": 1, "default": 1 }
+      },
+      "LimitQuery": {
+        "name": "limit",
+        "in": "query",
+        "schema": { "type": "integer", "minimum": 1, "maximum": 200, "default": 10 }
+      },
+      "SavedLimitQuery": {
+        "name": "limit",
+        "in": "query",
+        "schema": { "type": "integer", "minimum": 1, "maximum": 50, "default": 10 }
+      },
+      "AppLimitQuery": {
+        "name": "limit",
+        "in": "query",
+        "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 10 }
+      }
+    },
+    "responses": {
+      "Success": {
+        "description": "Successful response",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ApiResponse" }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "ApiResponse": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "message": { "type": ["string", "null"] },
+          "data": {}
+        },
+        "required": ["success", "message", "data"]
+      },
+      "ObjectId": {
+        "type": "string",
+        "pattern": "^[0-9a-fA-F]{24}$"
+      },
+      "StrongPassword": {
+        "type": "string",
+        "minLength": 8,
+        "pattern": "^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#$%^&*(),.?\":{}|<>]).+$"
+      },
+      "JobType": {
+        "type": "string",
+        "enum": ["Full-Time", "Contract", "Part-Time", "Internship", "Freelance"]
+      },
+      "JobStatus": {
+        "type": "string",
+        "enum": ["active", "draft", "closed"]
+      },
+      "ApplicationStatus": {
+        "type": "string",
+        "enum": ["submitted", "in_review", "shortlisted", "interview", "offer", "rejected", "hired"]
+      },
+      "SignUpRequest": {
+        "type": "object",
+        "properties": {
+          "fullname": { "type": "string", "minLength": 3 },
+          "email": { "type": "string", "format": "email" },
+          "password": { "$ref": "#/components/schemas/StrongPassword" }
+        },
+        "required": ["fullname", "email", "password"]
+      },
+      "SignInRequest": {
+        "type": "object",
+        "properties": {
+          "email": { "type": "string", "format": "email" },
+          "password": { "$ref": "#/components/schemas/StrongPassword" }
+        },
+        "required": ["email", "password"]
+      },
+      "VerifyAccountRequest": {
+        "type": "object",
+        "properties": {
+          "verificationToken": { "type": "string", "minLength": 6, "maxLength": 6 }
+        },
+        "required": ["verificationToken"]
+      },
+      "ForgotPasswordRequest": {
+        "type": "object",
+        "properties": {
+          "email": { "type": "string", "format": "email" }
+        },
+        "required": ["email"]
+      },
+      "ResetPasswordRequest": {
+        "type": "object",
+        "properties": {
+          "email": { "type": "string", "format": "email" },
+          "passwordResetToken": { "type": "string", "minLength": 6, "maxLength": 6 },
+          "password": { "$ref": "#/components/schemas/StrongPassword" },
+          "confirmPassword": { "$ref": "#/components/schemas/StrongPassword" }
+        },
+        "required": ["email", "passwordResetToken", "password", "confirmPassword"]
+      },
+      "UpdatePasswordRequest": {
+        "type": "object",
+        "properties": {
+          "password": { "$ref": "#/components/schemas/StrongPassword" },
+          "newPassword": { "$ref": "#/components/schemas/StrongPassword" },
+          "confirmPassword": { "$ref": "#/components/schemas/StrongPassword" }
+        },
+        "required": ["password", "newPassword", "confirmPassword"]
+      },
+      "UserProfilePatchRequest": {
+        "type": "object",
+        "properties": {
+          "fullname": { "type": "string", "minLength": 3 },
+          "email": { "type": "string", "format": "email" },
+          "phone": { "type": "string", "minLength": 10 },
+          "dateOfBirth": { "type": "string" },
+          "country": { "type": "string" },
+          "bio": { "type": "string", "maxLength": 1000 }
+        }
+      },
+      "AdminProfileRequest": {
+        "type": "object",
+        "properties": {
+          "fullname": { "type": "string", "minLength": 3 },
+          "email": { "type": "string", "format": "email" }
+        },
+        "required": ["fullname", "email"]
+      },
+      "SalaryRange": {
+        "type": "object",
+        "properties": {
+          "min": { "type": "number", "minimum": 0 },
+          "max": { "type": "number", "minimum": 0 }
+        },
+        "required": ["min", "max"]
+      },
+      "JobBase": {
+        "type": "object",
+        "properties": {
+          "title": { "type": "string", "minLength": 3, "maxLength": 120 },
+          "location": { "type": "string", "minLength": 2, "maxLength": 120 },
+          "jobType": { "$ref": "#/components/schemas/JobType" },
+          "category": { "type": "string", "minLength": 2, "maxLength": 80 },
+          "experienceLevel": { "type": "string", "minLength": 2, "maxLength": 60 },
+          "jobDescription": { "type": "string", "minLength": 20, "maxLength": 5000 },
+          "responsibilities": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 2, "maxLength": 500 },
+            "minItems": 1
+          },
+          "requirement": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 2, "maxLength": 500 },
+            "minItems": 1
+          },
+          "benefits": {
+            "type": "array",
+            "items": { "type": "string", "maxLength": 500 },
+            "default": []
+          },
+          "salaryRange": { "$ref": "#/components/schemas/SalaryRange" },
+          "companyName": { "type": "string", "minLength": 2, "maxLength": 120 },
+          "companyWebsite": { "type": "string", "format": "uri" },
+          "applicationQuestions": {
+            "type": "array",
+            "items": { "type": "string", "maxLength": 300 },
+            "default": []
+          },
+          "status": { "$ref": "#/components/schemas/JobStatus" }
+        }
+      },
+      "JobCreateRequest": {
+        "allOf": [
+          { "$ref": "#/components/schemas/JobBase" },
+          {
+            "type": "object",
+            "required": [
+              "title",
+              "location",
+              "jobType",
+              "category",
+              "experienceLevel",
+              "jobDescription",
+              "responsibilities",
+              "requirement",
+              "salaryRange",
+              "companyName"
+            ],
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": ["active", "draft", "closed"],
+                "default": "draft"
+              }
+            }
+          }
+        ]
+      },
+      "JobUpdateRequest": {
+        "allOf": [{ "$ref": "#/components/schemas/JobBase" }]
+      },
+      "ApplicationStatusUpdateRequest": {
+        "type": "object",
+        "properties": {
+          "status": { "$ref": "#/components/schemas/ApplicationStatus" },
+          "note": { "type": "string", "maxLength": 1000 }
+        },
+        "required": ["status"]
+      },
+      "ApplicationNoteUpdateRequest": {
+        "type": "object",
+        "properties": {
+          "note": { "type": "string", "minLength": 1, "maxLength": 1000 }
+        },
+        "required": ["note"]
+      },
+      "ApplicationPersonalInfoRequest": {
+        "type": "object",
+        "properties": {
+          "personalInfo": {
+            "type": "object",
+            "properties": {
+              "firstname": { "type": "string", "minLength": 1 },
+              "lastname": { "type": "string", "minLength": 1 },
+              "email": { "type": "string", "format": "email" },
+              "phone": { "type": "string" },
+              "currentLocation": { "type": "string" }
+            },
+            "required": ["firstname", "lastname", "email"]
+          }
+        },
+        "required": ["personalInfo"]
+      },
+      "SubmitInterviewRequest": {
+        "type": "object",
+        "properties": {
+          "answers": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "properties": {
+                "answer": { "type": "string", "minLength": 1 }
+              },
+              "required": ["answer"]
+            }
+          }
+        },
+        "required": ["answers"]
+      },
+      "ContactRequest": {
+        "type": "object",
+        "properties": {
+          "fullName": { "type": "string", "minLength": 2, "maxLength": 120 },
+          "email": { "type": "string", "format": "email" },
+          "subject": { "type": "string", "minLength": 3, "maxLength": 200 },
+          "message": { "type": "string", "minLength": 10, "maxLength": 4000 }
+        },
+        "required": ["fullName", "email", "subject", "message"]
+      }
+    }
+  }
+}
